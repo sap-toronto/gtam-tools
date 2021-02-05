@@ -1,0 +1,30 @@
+{% set data = load_setup_py_data() %}
+
+package:
+  name: gtam-tools
+  version: {{ data.get('version') }}
+
+source:
+  path: ../
+
+build:
+  noarch: python
+
+requirements:
+  host:
+    - python
+  run:
+    - python >=3.6
+    - numpy
+    - pandas 0.23.4
+    - wsp-balsa
+    - wsp-cheval
+
+about:
+  home: https://github.com/sap-toronto/gtam-tools
+  license: MIT
+  summary: A Python package for handling GTAModel data
+
+extra:
+  maintainers:
+    - Brian Cheung
