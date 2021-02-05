@@ -112,7 +112,7 @@ class MicrosimData(object):
         Args:
             run_folder (Union[str, Path]): The path to the GTAModel Microsim Results folder
             link_tables (bool, optional): Defaults to ``True``. A flag to link result tables together. Please note that
-                this option will take a few minutes to complete.
+                this option will take several minutes to complete.
             reweight_trips (bool, optional): Defaults to ``True``. A flag to calculate final weights in the trip and
                 trip mode tables.
             time_format (TimeFormat, optional): Defaults to ``TimeFormat.MINUTE_DELTA``. Specify the time format in the

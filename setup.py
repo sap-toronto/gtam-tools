@@ -7,7 +7,7 @@ with open(path.join(path.dirname(path.realpath(__file__)), 'gtam_tools', 'versio
     exec(fp.read(), {}, version)
 
 setup(
-    name='gtam-tools',
+    name='wsp-gtam-tools',
     version=safe_version(version['__version__']),
     description='A Python package for handling GTAModel data',
     url='https://github.com/sap-toronto/gtam-tools',
@@ -21,6 +21,7 @@ setup(
     install_requires=[
         'numpy',
         'pandas==0.23.4',
+        'plotly',
         'wsp-balsa',
         'wsp-cheval'
     ],
