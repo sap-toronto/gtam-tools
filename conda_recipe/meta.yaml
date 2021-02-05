@@ -15,6 +15,7 @@ requirements:
     - python
   run:
     - python >=3.6
+    - geopandas
     - numpy
     - pandas 0.23.4
     - plotly

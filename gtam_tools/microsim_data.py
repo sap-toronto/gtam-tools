@@ -1,9 +1,11 @@
 from enum import Enum
+import geopandas as gpd
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from typing import Union
 
+from balsa.routines import distance_matrix
 from balsa.logging import get_model_logger
 from cheval import LinkedDataFrame
 
@@ -22,6 +24,8 @@ class MicrosimData(object):
     _trip_modes: LinkedDataFrame
     _trip_stations: LinkedDataFrame
     _trip_passengers: LinkedDataFrame
+    _zone_coordinates: gpd.GeoDataFrame
+    _impedances: pd.DataFrame
 
     _logger = get_model_logger('gtam_tools.MicrosimData')
 
@@ -47,8 +51,8 @@ class MicrosimData(object):
     }
 
     _trip_stations_spec = {
-        'household_id': np.int64, 'person_id': np.int32, 'trip_id': np.int32, 'station': np.int16, 'direction': 'category',
-        'weight': np.int64
+        'household_id': np.int64, 'person_id': np.int32, 'trip_id': np.int32, 'station': np.int16,
+        'direction': 'category', 'weight': np.int64
     }
 
     _passenger_spec = {
@@ -81,6 +85,10 @@ class MicrosimData(object):
         return self._trip_passengers is not None
 
     @property
+    def zone_coordinates_loaded(self):
+        return self._zone_coordinates is not None
+
+    @property
     def households(self) -> LinkedDataFrame:
         return self._households
 
@@ -104,9 +112,18 @@ class MicrosimData(object):
     def trip_passengers(self) -> LinkedDataFrame:
         return self._trip_passengers
 
+    @property
+    def zone_coordinates(self) -> gpd.GeoDataFrame:
+        return self._zone_coordinates
+
+    @property
+    def impedances(self) -> pd.DataFrame:
+        return self._impedances
+
     @staticmethod
     def load_folder(run_folder: Union[str, Path], link_tables: bool = True, reweight_trips: bool = True,
-                    time_format=TimeFormat.MINUTE_DELTA) -> 'MicrosimData':
+                    time_format=TimeFormat.MINUTE_DELTA, zones_file: Union[str, Path] = None, taz_col: str = None,
+                    zones_crs: str = None, to_crs: str = 'EPSG:26917', coord_unit: float = 0.001) -> 'MicrosimData':
         """Load GTAModel Microsim Result tables from a specified folder.
 
         Args:
@@ -117,6 +134,16 @@ class MicrosimData(object):
                 trip mode tables.
             time_format (TimeFormat, optional): Defaults to ``TimeFormat.MINUTE_DELTA``. Specify the time format in the
                 Microsim results. Used for parsing times in the trip modes file.
+            zones_file (Union[str, Path], optional): Defaults to ``None``. The path to a file containing zone
+                coordinates. Accepts CSVs with x, y coordinate columns, or a zones shapefile. If providing a shapefile,
+                it will calculate the zone coordinate based on the centroid of each zone polygon.
+            taz_col (str, optional): Defaults to ``None``. Name of the TAZ column in ``zones_file``.
+            zones_crs (Union[str, CRS], optional): Defaults to ``None``. The coordinate reference system for
+                ``zones_file``. Only applicable if ``zones_file`` is a CSV file. Value can be anything accepted by
+                ``pyproj.CRS.from_user_input()``.
+            to_crs (str, optional): Defaults to ``'EPSG:26917'``. A coordinate reference system to reproject zone
+                coordinates to. Value can be anything accepted by ``pyproj.CRS.from_user_input()``.
+            coord_unit (float, optional): Defaults to ``0.001``. A value to adjust distance values with.
 
         Returns:
             MicrosimData
@@ -124,6 +151,9 @@ class MicrosimData(object):
         run_folder = Path(run_folder)
         assert run_folder.exists(), f'Run folder `{run_folder.as_posix()}` not found'
         assert run_folder.is_dir()
+
+        if zones_file is not None:
+            assert taz_col is not None, 'Please specify `taz_col`'
 
         if reweight_trips:
             assert link_tables, '`link_tables` must be enabled to reweight trips'
@@ -150,26 +180,58 @@ class MicrosimData(object):
         except FileExistsError:
             fpass_fp = None
 
-        data = MicrosimData()
+        if zones_file is not None:
+            zones_file = Path(zones_file)
+            if not zones_file.exists():
+                raise FileExistsError(f'Zone attribute file could not be found at {zones_file.as_posix()}')
 
         MicrosimData._logger.tip(f'Loading Microsim Results from `{run_folder.as_posix()}`')
 
-        data._load_tables(households_fp, persons_fp, trips_fp, trip_modes_fp, trip_stations_fp, fpass_fp=fpass_fp)
+        data = MicrosimData()
+        data._load_tables(households_fp, persons_fp, trips_fp, trip_modes_fp, trip_stations_fp, fpass_fp=fpass_fp,
+                          zones_fp=zones_file, taz_col=taz_col, zones_crs=zones_crs, to_crs=to_crs)
         data._classify_times(time_format)
+
+        if data.zone_coordinates_loaded:
+            data._calc_impedences(coord_unit)
+
         data._verify_integrity()
 
         if link_tables:
             data._link_tables()
 
         if reweight_trips:
-            data.reweight_trips()
+            data._reweight_trips()
 
         MicrosimData._logger.tip('Microsim Results successfully loaded!')
 
         return data
 
+    @staticmethod
+    def _load_zones_file(fp: Path, taz_col: str, zones_crs: str, to_crs: str) -> gpd.GeoDataFrame:
+        if fp.suffix == '.csv':
+            zones_df = pd.read_csv(fp)
+            zones_df.columns = zones_df.columns.str.lower()
+            zones_df = gpd.GeoDataFrame(zones_df, geometry=gpd.points_from_xy(zones_df['x'], zones_df['y']),
+                                        crs=zones_crs)
+        elif fp.suffix == '.shp':
+            zones_df = gpd.read_file(fp.as_posix())
+            zones_df.columns = zones_df.columns.str.lower()
+            zones_df['geometry'] = zones_df.centroid
+        else:
+            raise RuntimeError(f'An unsupported zones file type was provided ({fp.suffix})')
+
+        zones_df.set_index(taz_col.lower(), inplace=True)
+        zones_df = zones_df.to_crs({'init': to_crs})  # reproject
+        zones_df['x'] = zones_df.geometry.x
+        zones_df['y'] = zones_df.geometry.y
+        zones_df.sort_index(inplace=True)
+
+        return zones_df[['geometry', 'x', 'y']].copy()
+
     def _load_tables(self, households_fp: Path, persons_fp: Path, trips_fp: Path, trip_modes_fp: Path,
-                     trip_stations_fp: Path, fpass_fp: Path = None):
+                     trip_stations_fp: Path, fpass_fp: Path = None, zones_fp: Path = None, taz_col: str = None,
+                     zones_crs: str = None, to_crs: str = 'EPSG:26917'):
         self._logger.info(f'Loading result tables')
 
         table = LinkedDataFrame.read_csv(households_fp, dtype=self._household_spec)
@@ -196,6 +258,11 @@ class MicrosimData(object):
             table = LinkedDataFrame.read_csv(fpass_fp, dtype=self._passenger_spec)
             self._logger.report(f'Loaded {len(table)} trip passenger entries')
             self._trip_passengers = table
+
+        if zones_fp is not None:
+            table = self._load_zones_file(zones_fp, taz_col, zones_crs, to_crs)
+            self._logger.report(f'Loaded coordinates for {len(table)} zones')
+            self._zone_coordinates = table
 
     def _classify_times(self, time_format: TimeFormat):
         assert self.trip_modes_loaded
@@ -256,6 +323,18 @@ class MicrosimData(object):
 
         return new_col.astype('category')
 
+    def _calc_impedences(self, coord_unit: float):
+        self._logger.info('Calculating impedances from zone coordinates')
+
+        methods = ['manhattan', 'euclidean']
+        impedances = {
+            method: distance_matrix(self._zone_coordinates['x'], self._zone_coordinates['y'], tall=True, method=method,
+                                    coord_unit=coord_unit) for method in methods
+        }
+
+        self._impedances = pd.DataFrame(impedances)
+        self._impedances.index.names = ['o', 'd']
+
     def _verify_integrity(self):
         if self.households_loaded and self.persons_loaded:
             hh_sizes = self.persons['household_id'].value_counts(dropna=False)
@@ -284,7 +363,7 @@ class MicrosimData(object):
         self.trip_stations.link_to(self.trips, 'trip', on=['household_id', 'person_id', 'trip_id'])
         self._logger.debug('Linked trip stations to trips')
 
-    def reweight_trips(self):
+    def _reweight_trips(self):
         assert self.trips_loaded
         trips = self.trips
         trip_modes = self.trip_modes

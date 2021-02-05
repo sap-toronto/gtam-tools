@@ -19,6 +19,7 @@ setup(
     ],
     packages=find_packages(),
     install_requires=[
+        'geopandas',
         'numpy',
         'pandas==0.23.4',
         'plotly',
