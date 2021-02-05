@@ -146,7 +146,7 @@ class MicrosimData(object):
         trip_stations_fp = _prep_file('trip_stations')
 
         try:
-            fpass_fp = _prep_file('facilitate_passenger.csv')
+            fpass_fp = _prep_file('facilitate_passenger')
         except FileExistsError:
             fpass_fp = None
 
