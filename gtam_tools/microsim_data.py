@@ -422,7 +422,7 @@ class MicrosimData(object):
         self._logger.info('Deriving addition trip variables')
 
         self._logger.debug('Classifying `purpose`')
-        lookup_table = _load_model_activity_pairs()
+        lookup_table = _load_model_activity_pairs()  # Essentially, `purpose` is being classified on `d_act`...
         indexer = pd.MultiIndex.from_arrays([trips['o_act'], trips['d_act']])
         trips['purpose'] = lookup_table.reindex(indexer, fill_value='NHB').values
         trips['purpose'] = trips['purpose'].astype('category')

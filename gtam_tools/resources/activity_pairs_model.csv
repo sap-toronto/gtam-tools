@@ -8,7 +8,7 @@ Home,PrimaryWork,Work
 Home,ReturnFromWork,Home
 Home,School,School
 Home,SecondaryWork,Work
-Home,WorkBasedBusiness,Business
+Home,WorkBasedBusiness,Work
 IndividualOther,Home,Home
 IndividualOther,IndividualOther,Other
 IndividualOther,JointMarket,Market
@@ -18,7 +18,7 @@ IndividualOther,PrimaryWork,Work
 IndividualOther,ReturnFromWork,Home
 IndividualOther,School,School
 IndividualOther,SecondaryWork,Work
-IndividualOther,WorkBasedBusiness,Business
+IndividualOther,WorkBasedBusiness,Work
 JointMarket,Home,Home
 JointMarket,IndividualOther,Other
 JointMarket,JointMarket,Market
@@ -28,7 +28,7 @@ JointMarket,PrimaryWork,Work
 JointMarket,ReturnFromWork,Home
 JointMarket,School,School
 JointMarket,SecondaryWork,Work
-JointMarket,WorkBasedBusiness,Business
+JointMarket,WorkBasedBusiness,Work
 JointOther,Home,Home
 JointOther,IndividualOther,Other
 JointOther,JointMarket,Market
@@ -38,7 +38,7 @@ JointOther,PrimaryWork,Work
 JointOther,ReturnFromWork,Home
 JointOther,School,School
 JointOther,SecondaryWork,Work
-JointOther,WorkBasedBusiness,Business
+JointOther,WorkBasedBusiness,Work
 Market,Home,Home
 Market,IndividualOther,Other
 Market,JointMarket,Market
@@ -48,7 +48,7 @@ Market,PrimaryWork,Work
 Market,ReturnFromWork,Home
 Market,School,School
 Market,SecondaryWork,Work
-Market,WorkBasedBusiness,Business
+Market,WorkBasedBusiness,Work
 PrimaryWork,Home,Home
 PrimaryWork,IndividualOther,Other
 PrimaryWork,JointMarket,Market
@@ -58,7 +58,7 @@ PrimaryWork,PrimaryWork,Work
 PrimaryWork,ReturnFromWork,Home
 PrimaryWork,School,School
 PrimaryWork,SecondaryWork,Work
-PrimaryWork,WorkBasedBusiness,Business
+PrimaryWork,WorkBasedBusiness,Work
 School,Home,Home
 School,IndividualOther,Other
 School,JointMarket,Market
@@ -68,7 +68,7 @@ School,PrimaryWork,Work
 School,ReturnFromWork,Home
 School,School,School
 School,SecondaryWork,Work
-School,WorkBasedBusiness,Business
+School,WorkBasedBusiness,Work
 SecondaryWork,Home,Home
 SecondaryWork,IndividualOther,Other
 SecondaryWork,JointMarket,Market
@@ -78,7 +78,7 @@ SecondaryWork,PrimaryWork,Work
 SecondaryWork,ReturnFromWork,Home
 SecondaryWork,School,School
 SecondaryWork,SecondaryWork,Work
-SecondaryWork,WorkBasedBusiness,Business
+SecondaryWork,WorkBasedBusiness,Work
 WorkBasedBusiness,Home,Home
 WorkBasedBusiness,IndividualOther,Other
 WorkBasedBusiness,JointMarket,Market
@@ -88,4 +88,4 @@ WorkBasedBusiness,PrimaryWork,Work
 WorkBasedBusiness,ReturnFromWork,Home
 WorkBasedBusiness,School,School
 WorkBasedBusiness,SecondaryWork,Work
-WorkBasedBusiness,WorkBasedBusiness,Business
+WorkBasedBusiness,WorkBasedBusiness,Work
