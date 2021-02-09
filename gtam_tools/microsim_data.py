@@ -1,4 +1,5 @@
 import geopandas as gpd
+from itertools import product
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -385,6 +386,32 @@ class MicrosimData(object):
         persons = self.persons
 
         self._logger.info('Deriving additional persons variables')
+
+        self._logger.debug('Classifying `person_type`')
+        persons['person_type'] = 'O'
+        persons.loc[persons['age'] >= 65, 'person_type'] = 'R'  # Retired
+        persons.loc[persons['employment_status'] == 'F', 'person_type'] = 'F'  # Full-time Worker
+        persons.loc[persons['employment_status'] == 'P', 'person_type'] = 'P'  # Part-time Worker
+        persons.loc[persons['age'] < 18, 'person_type'] = 'S'  # Student
+        persons.loc[(persons['age'] >= 18) & (persons['student_status'].isin({'F', 'P'})), 'person_type'] = 'U'  # University/College
+        persons['person_type'] = persons['person_type'].astype('category')
+
+        self._logger.debug('Classifying `student_type`')
+        persons['student_type'] = 'O'
+        persons.loc[persons['age'] < 13, 'student_type'] = 'P'  # Primary
+        persons.loc[persons['age'].between(13, 17), 'student_type'] = 'S'  # Secondary
+        persons.loc[persons['person_type'] == 'U', 'student_type'] = 'U'  # University/College
+        persons['student_type'] = persons['student_type'].astype('category')
+
+        self._logger.debug('Classifying `occ_emp`')  # combine occupation and employment status into one identifier
+        persons['occ_emp'] = 'O'
+        occs = 'G P M S'.split(' ')
+        emp_stat_groups = {'F': {'F', 'H'}, 'P': {'P', 'J'}}  # Only look at full or part time workers
+        for occ, status in product(occs, emp_stat_groups.keys()):
+            mask1 = persons['occupation'] == occ
+            mask2 = persons['employment_status'].isin(emp_stat_groups[status])
+            persons.loc[mask1 & mask2, 'occ_emp'] = f'{occ}{status}'
+        persons['occ_emp'] = persons['occ_emp'].astype('category')
 
         self._logger.debug('Classifying `work_from_home`')
         persons['work_from_home'] = persons['employment_status'].isin({'H', 'J'})
