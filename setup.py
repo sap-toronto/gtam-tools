@@ -18,6 +18,8 @@ setup(
         'License :: OSI Approved :: MIT License'
     ],
     packages=find_packages(),
+    package_data={'': ['resources/*.csv']},
+    python_requires='>=3.6',
     install_requires=[
         'geopandas',
         'numpy',
@@ -25,6 +27,5 @@ setup(
         'plotly',
         'wsp-balsa',
         'wsp-cheval'
-    ],
-    python_requires='>=3.6'
+    ]
 )

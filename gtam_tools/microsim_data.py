@@ -1,19 +1,20 @@
-from enum import Enum
 import geopandas as gpd
 import numpy as np
 import pandas as pd
 from pathlib import Path
+import pkg_resources
 from typing import Union
 
 from balsa.routines import distance_matrix
 from balsa.logging import get_model_logger
 from cheval import LinkedDataFrame
 
+from .enums import TimeFormat
 
-class TimeFormat(Enum):
 
-    MINUTE_DELTA = 'minute_delta'
-    COLON_SEP = 'colon_separated'
+def _load_model_activity_pairs() -> pd.Series:
+    stream = pkg_resources.resource_stream(__name__, 'resources/activity_pairs_model.csv')
+    return pd.read_csv(stream, index_col=[0, 1], squeeze=True)
 
 
 class MicrosimData(object):
@@ -121,7 +122,7 @@ class MicrosimData(object):
         return self._impedances
 
     @staticmethod
-    def load_folder(run_folder: Union[str, Path], link_tables: bool = True, reweight_trips: bool = True,
+    def load_folder(run_folder: Union[str, Path], link_tables: bool = True, derive_additional_variables: bool = True,
                     time_format=TimeFormat.MINUTE_DELTA, zones_file: Union[str, Path] = None, taz_col: str = None,
                     zones_crs: str = None, to_crs: str = 'EPSG:26917', coord_unit: float = 0.001) -> 'MicrosimData':
         """Load GTAModel Microsim Result tables from a specified folder.
@@ -130,8 +131,8 @@ class MicrosimData(object):
             run_folder (Union[str, Path]): The path to the GTAModel Microsim Results folder
             link_tables (bool, optional): Defaults to ``True``. A flag to link result tables together. Please note that
                 this option will take several minutes to complete.
-            reweight_trips (bool, optional): Defaults to ``True``. A flag to calculate final weights in the trip and
-                trip mode tables.
+            derive_additional_variables (bool, optional): Defaults to ``True``. A flag to derive additional variables
+                based on the Microsim data. Requires ``link_tables=True``.
             time_format (TimeFormat, optional): Defaults to ``TimeFormat.MINUTE_DELTA``. Specify the time format in the
                 Microsim results. Used for parsing times in the trip modes file.
             zones_file (Union[str, Path], optional): Defaults to ``None``. The path to a file containing zone
@@ -155,8 +156,8 @@ class MicrosimData(object):
         if zones_file is not None:
             assert taz_col is not None, 'Please specify `taz_col`'
 
-        if reweight_trips:
-            assert link_tables, '`link_tables` must be enabled to reweight trips'
+        if derive_additional_variables:
+            assert link_tables, '`link_tables` must be enabled to derive additional variables'
 
         def _prep_file(name: str) -> Path:
             uncompressed = run_folder / (name + '.csv')
@@ -190,7 +191,6 @@ class MicrosimData(object):
         data = MicrosimData()
         data._load_tables(households_fp, persons_fp, trips_fp, trip_modes_fp, trip_stations_fp, fpass_fp=fpass_fp,
                           zones_fp=zones_file, taz_col=taz_col, zones_crs=zones_crs, to_crs=to_crs)
-        data._classify_times(time_format)
 
         if data.zone_coordinates_loaded:
             data._calc_impedences(coord_unit)
@@ -200,7 +200,11 @@ class MicrosimData(object):
         if link_tables:
             data._link_tables()
 
-        if reweight_trips:
+        if derive_additional_variables:
+            data._classify_times(time_format)
+            data._derive_household_variables()
+            data._derive_person_variables()
+            data._derive_trip_variables()
             data._reweight_trips()
 
         MicrosimData._logger.tip('Microsim Results successfully loaded!')
@@ -271,14 +275,14 @@ class MicrosimData(object):
 
         table = self.trip_modes
 
+        self._logger.debug('Parsing `o_depart`')
         table['o_depart_hr'] = self._convert_time_to_hours(table['o_depart'], time_format)
-        self._logger.debug('Parsed `o_depart`')
 
+        self._logger.debug('Parsing `d_arrive`')
         table['d_arrive_hr'] = self._convert_time_to_hours(table['d_arrive'], time_format)
-        self._logger.debug('Parsed `d_arrive`')
 
+        self._logger.debug('Classifying `time_period`')
         table['time_period'] = self._classify_time_period(table['o_depart_hr'])
-        self._logger.debug('Classified time periods')
 
     @staticmethod
     def _convert_time_to_hours(column: pd.Series, time_format: TimeFormat) -> pd.Series:
@@ -363,11 +367,56 @@ class MicrosimData(object):
         self.trip_stations.link_to(self.trips, 'trip', on=['household_id', 'person_id', 'trip_id'])
         self._logger.debug('Linked trip stations to trips')
 
+    def _derive_household_variables(self):
+        households = self.households
+
+        self._logger.info('Deriving additional household variables')
+
+        self._logger.debug('Summarizing `drivers`')
+        households['drivers'] = households.persons.sum('license * 1')
+
+        self._logger.debug('Classifying `auto_suff`')
+        households['auto_suff'] = 'suff'
+        households.loc[households.eval('drivers > vehicles'), 'auto_suff'] = 'insuff'
+        households.loc[households['vehicles'] == 0, 'auto_suff'] = 'nocar'
+        households['auto_suff'] = households['auto_suff'].astype('category')
+
+    def _derive_person_variables(self):
+        persons = self.persons
+
+        self._logger.info('Deriving additional persons variables')
+
+        self._logger.debug('Classifying `work_from_home`')
+        persons['work_from_home'] = persons['employment_status'].isin({'H', 'J'})
+
+    def _derive_trip_variables(self):
+        trips = self.trips
+
+        self._logger.info('Deriving addition trip variables')
+
+        self._logger.debug('Classifying `purpose`')
+        lookup_table = _load_model_activity_pairs()
+        indexer = pd.MultiIndex.from_arrays([trips['o_act'], trips['d_act']])
+        trips['purpose'] = lookup_table.reindex(indexer, fill_value='NHB').values
+        trips['purpose'] = trips['purpose'].astype('category')
+
+        self._logger.debug('Classifying `direction`')
+        orig_is_home = trips['o_act'] == 'Home'
+        dest_is_home = trips['d_act'] == 'Home'
+        trips['direction'] = 'NHB'
+        trips.loc[orig_is_home & dest_is_home, 'direction'] = 'H2H'
+        trips.loc[orig_is_home & ~dest_is_home, 'direction'] = 'Outbound'
+        trips.loc[~orig_is_home & dest_is_home, 'direction'] = 'Inbound'
+        trips['direction'] = trips['direction'].astype('category')
+
     def _reweight_trips(self):
-        assert self.trips_loaded
         trips = self.trips
         trip_modes = self.trip_modes
 
         self._logger.info('Reweighting trips and trip mode tables')
+
+        self._logger.debug('Summarizing `repetitions` in the trips table')
         trips['repetitions'] = trips.modes.sum('weight')
+
+        self._logger.debug('Calculating `full_weight` in the trip modes table')
         trip_modes['full_weight'] = trip_modes.weight / trip_modes.trip.repetitions * trip_modes.trip.weight
