@@ -6,11 +6,11 @@ from pathlib import Path
 import pkg_resources
 from typing import Union
 
-from balsa.routines import distance_matrix
+from balsa.routines import distance_matrix, read_mdf
 from balsa.logging import get_model_logger
 from cheval import LinkedDataFrame
 
-from .enums import TimeFormat
+from .enums import TimeFormat, SpecialZones
 
 
 def _load_model_activity_pairs() -> pd.Series:
@@ -194,7 +194,7 @@ class MicrosimData(object):
                           zones_fp=zones_file, taz_col=taz_col, zones_crs=zones_crs, to_crs=to_crs)
 
         if data.zone_coordinates_loaded:
-            data._calc_impedences(coord_unit)
+            data._calc_base_impedences(coord_unit)
 
         data._verify_integrity()
 
@@ -212,6 +212,27 @@ class MicrosimData(object):
 
         return data
 
+    def add_impedance_skim(self, name: str, skim_path: Union[str, Path], scale_unit: float = 1.0, ignore_missing_ods: bool = False):
+        assert self.zone_coordinates_loaded, 'Cannot add skim unless zone coordinates are loaded'
+
+        skim_path = Path(skim_path)
+        assert skim_path.exists(), f'Skim file not found at `{skim_path.as_posix()}`'
+
+        skim_data = read_mdf(skim_path, raw=False, tall=True)
+        mask1 = skim_data.index.get_level_values(0) <= SpecialZones.MAX_INTERNAL
+        mask2 = skim_data.index.get_level_values(1) <= SpecialZones.MAX_INTERNAL
+        skim_data = skim_data[mask1 & mask2].reindex(self.impedances.index)
+
+        skim_data = skim_data * scale_unit
+
+        if ignore_missing_ods:
+            skim_data.fillna(0, inplace=True)
+        else:
+            assert np.all(~skim_data.isna()), 'Skim is not compatible with the dataset zone system'
+
+        self.impedances[name] = skim_data
+        self._logger.report(f'Added `{name}` to impedances')
+
     @staticmethod
     def _load_zones_file(fp: Path, taz_col: str, zones_crs: str, to_crs: str) -> gpd.GeoDataFrame:
         if fp.suffix == '.csv':
@@ -226,7 +247,12 @@ class MicrosimData(object):
         else:
             raise RuntimeError(f'An unsupported zones file type was provided ({fp.suffix})')
 
-        zones_df.set_index(taz_col.lower(), inplace=True)
+        taz_col = taz_col.lower()
+        zones_df[taz_col] = zones_df[taz_col].astype(int)
+
+        zones_df = zones_df[zones_df[taz_col] <= SpecialZones.MAX_INTERNAL].copy()  # Keep internal zones only
+
+        zones_df.set_index(taz_col, inplace=True)
         zones_df = zones_df.to_crs({'init': to_crs})  # reproject
         zones_df['x'] = zones_df.geometry.x
         zones_df['y'] = zones_df.geometry.y
@@ -266,7 +292,7 @@ class MicrosimData(object):
 
         if zones_fp is not None:
             table = self._load_zones_file(zones_fp, taz_col, zones_crs, to_crs)
-            self._logger.report(f'Loaded coordinates for {len(table)} zones')
+            self._logger.report(f'Loaded coordinates for {len(table)} internal zones')
             self._zone_coordinates = table
 
     def _classify_times(self, time_format: TimeFormat):
@@ -328,8 +354,8 @@ class MicrosimData(object):
 
         return new_col.astype('category')
 
-    def _calc_impedences(self, coord_unit: float):
-        self._logger.info('Calculating impedances from zone coordinates')
+    def _calc_base_impedences(self, coord_unit: float):
+        self._logger.info('Calculating standard impedances from zone coordinates')
 
         methods = ['manhattan', 'euclidean']
         impedances = {
@@ -367,6 +393,10 @@ class MicrosimData(object):
 
         self.trip_stations.link_to(self.trips, 'trip', on=['household_id', 'person_id', 'trip_id'])
         self._logger.debug('Linked trip stations to trips')
+
+        if self.zone_coordinates_loaded:
+            self.trips.link_to(self.impedances, 'imped', on_self=['o_zone', 'd_zone'])
+            self._logger.debug('Linked impedances to trips')
 
     def _derive_household_variables(self):
         households = self.households

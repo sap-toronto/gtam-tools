@@ -2,6 +2,7 @@ from enum import Enum, IntEnum
 
 
 class SpecialZones(IntEnum):
+    MAX_INTERNAL = 6000
     ROAMING = 8888
 
 
