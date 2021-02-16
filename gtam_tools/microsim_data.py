@@ -212,13 +212,23 @@ class MicrosimData(object):
 
         return data
 
-    def add_impedance_skim(self, name: str, skim_path: Union[str, Path], scale_unit: float = 1.0, ignore_missing_ods: bool = False):
+    def add_impedance_skim(self, name: str, skim_fp: Union[str, Path], scale_unit: float = 1.0,
+                           ignore_missing_ods: bool = False):
+        """Add a skim from a matrix binary file as impedance values to the impedances table.
+
+        Args:
+            name (str): The reference name for the impedance skim.
+            skim_fp (Union[str, Path]): The file path to the skim matrix binary file.
+            scale_unit (float, optional): Defaults to ``1.0``. A scalar value to adjust skim values.
+            ignore_missing_ods (bool, optional): Defaults to ``False``. A flag to ignore missing ODs. If ``True``, skim
+                values for missing ODs will be set to zero.
+        """
         assert self.zone_coordinates_loaded, 'Cannot add skim unless zone coordinates are loaded'
 
-        skim_path = Path(skim_path)
-        assert skim_path.exists(), f'Skim file not found at `{skim_path.as_posix()}`'
+        skim_fp = Path(skim_fp)
+        assert skim_fp.exists(), f'Skim file not found at `{skim_fp.as_posix()}`'
 
-        skim_data = read_mdf(skim_path, raw=False, tall=True)
+        skim_data = read_mdf(skim_fp, raw=False, tall=True)
         mask1 = skim_data.index.get_level_values(0) <= SpecialZones.MAX_INTERNAL
         mask2 = skim_data.index.get_level_values(1) <= SpecialZones.MAX_INTERNAL
         skim_data = skim_data[mask1 & mask2].reindex(self.impedances.index)
@@ -232,6 +242,57 @@ class MicrosimData(object):
 
         self.impedances[name] = skim_data
         self._logger.report(f'Added `{name}` to impedances')
+
+    def add_zone_ensembles(self, correspondence_fp: Union[str, Path], taz_col: str, ensemble_col: str = 'ensemble',
+                           fill_missing_ensembles: int = 9999, ensemble_names_fp: Union[str, Path] = None,
+                           ensemble_names_col: str = 'name'):
+        """Add zone ensemble definitions to the zone coordinates table.
+
+        Args:
+            correspondence_fp (Union[str, Path]): The file path to the zone ensemble correspondence file. Can be a CSV
+                file or shapefile.
+            taz_col (str): Name of the TAZ column in ``correspondence_fp``.
+            ensemble_col (str, optional): Defaults to ``'ensemble'``. Name of the ensembles column in
+                ``correspondence_fp``.
+            fill_missing_ensembles (int, optional): Defaults to ``9999``. A value to use for all TAZs without an
+                assigned ensemble.
+            ensemble_names_fp (Union[str, Path], optional): Defaults to ``None``. The file path to a CSV file containing
+                zone ensemble names. The ensemble id column in this file must be the same as ``ensemble_col``.
+            ensemble_names_col (str, optional): Defaults to ``'name'``. The name of the column containing the ensemble
+                names. Will only be used if ``ensemble_names_fp`` is specified.
+        """
+        assert self.zone_coordinates_loaded, 'Cannot add zone ensembles unless zone coordinates are loaded'
+
+        taz_col = taz_col.lower()
+        ensemble_col = ensemble_col.lower()
+
+        correspondence_fp = Path(correspondence_fp)
+        assert correspondence_fp.exists(), f'Correspondence file not found at `{correspondence_fp.as_posix()}`'
+
+        if correspondence_fp.suffix == '.csv':
+            correspondence = pd.read_csv(correspondence_fp)
+        elif correspondence_fp.suffix == '.shp':
+            correspondence = gpd.read_file(correspondence_fp)
+        else:
+            raise RuntimeError(f'An unsupported zones file type was provided ({correspondence_fp.suffix})')
+
+        correspondence.columns = correspondence.columns.str.lower()
+        correspondence.set_index(taz_col, inplace=True)
+        correspondence = correspondence[ensemble_col].reindex(self.zone_coordinates.index, fill_value=fill_missing_ensembles)
+        correspondence = correspondence.to_frame(name=ensemble_col)
+
+        if ensemble_names_fp is not None:
+            ensemble_names_fp = Path(ensemble_names_fp)
+            assert ensemble_names_fp.exists(), f'Ensemble names file not found at `{ensemble_names_fp.as_posix()}`'
+
+            ensemble_names = pd.read_csv(ensemble_names_fp)
+
+            correspondence = correspondence.merge(ensemble_names, how='left', on=ensemble_col)
+
+        self.zone_coordinates['ensemble'] = correspondence[ensemble_col].values
+        if ensemble_names_fp is not None:
+            self.zone_coordinates['ensemble_name'] = correspondence[ensemble_names_col]
+        self._logger.report('Added ensembles to zone coordinates')
 
     @staticmethod
     def _load_zones_file(fp: Path, taz_col: str, zones_crs: str, to_crs: str) -> gpd.GeoDataFrame:
