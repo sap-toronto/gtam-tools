@@ -243,18 +243,18 @@ class MicrosimData(object):
         self.impedances[name] = skim_data
         self._logger.report(f'Added `{name}` to impedances')
 
-    def add_zone_ensembles(self, correspondence_fp: Union[str, Path], taz_col: str, ensemble_col: str = 'ensemble',
-                           fill_missing_ensembles: int = 9999, ensemble_names_fp: Union[str, Path] = None,
-                           ensemble_names_col: str = 'name'):
+    def add_zone_ensembles(self, name: str, definition_fp: Union[str, Path], taz_col: str,
+                           ensemble_col: str = 'ensemble', missing_val: int = 9999,
+                           ensemble_names_fp: Union[str, Path] = None, ensemble_names_col: str = 'name'):
         """Add zone ensemble definitions to the zone coordinates table.
 
         Args:
-            correspondence_fp (Union[str, Path]): The file path to the zone ensemble correspondence file. Can be a CSV
+            name (str): The reference name for the ensemble definitions.
+            definition_fp (Union[str, Path]): The file path to the zone ensemble correspondence file. Can be a CSV
                 file or shapefile.
-            taz_col (str): Name of the TAZ column in ``correspondence_fp``.
-            ensemble_col (str, optional): Defaults to ``'ensemble'``. Name of the ensembles column in
-                ``correspondence_fp``.
-            fill_missing_ensembles (int, optional): Defaults to ``9999``. A value to use for all TAZs without an
+            taz_col (str): Name of the TAZ column in ``definition_fp``.
+            ensemble_col (str, optional): Defaults to ``'ensemble'``. Name of the ensembles column in ``definition_fp``.
+            missing_val (int, optional): Defaults to ``9999``. A value to use for all TAZs without an
                 assigned ensemble.
             ensemble_names_fp (Union[str, Path], optional): Defaults to ``None``. The file path to a CSV file containing
                 zone ensemble names. The ensemble id column in this file must be the same as ``ensemble_col``.
@@ -266,19 +266,19 @@ class MicrosimData(object):
         taz_col = taz_col.lower()
         ensemble_col = ensemble_col.lower()
 
-        correspondence_fp = Path(correspondence_fp)
-        assert correspondence_fp.exists(), f'Correspondence file not found at `{correspondence_fp.as_posix()}`'
+        definition_fp = Path(definition_fp)
+        assert definition_fp.exists(), f'Correspondence file not found at `{definition_fp.as_posix()}`'
 
-        if correspondence_fp.suffix == '.csv':
-            correspondence = pd.read_csv(correspondence_fp)
-        elif correspondence_fp.suffix == '.shp':
-            correspondence = gpd.read_file(correspondence_fp)
+        if definition_fp.suffix == '.csv':
+            correspondence = pd.read_csv(definition_fp)
+        elif definition_fp.suffix == '.shp':
+            correspondence = gpd.read_file(definition_fp)
         else:
-            raise RuntimeError(f'An unsupported zones file type was provided ({correspondence_fp.suffix})')
+            raise RuntimeError(f'An unsupported zones file type was provided ({definition_fp.suffix})')
 
         correspondence.columns = correspondence.columns.str.lower()
         correspondence.set_index(taz_col, inplace=True)
-        correspondence = correspondence[ensemble_col].reindex(self.zone_coordinates.index, fill_value=fill_missing_ensembles)
+        correspondence = correspondence[ensemble_col].reindex(self.zone_coordinates.index, fill_value=missing_val)
         correspondence = correspondence.to_frame(name=ensemble_col)
 
         if ensemble_names_fp is not None:
@@ -289,9 +289,9 @@ class MicrosimData(object):
 
             correspondence = correspondence.merge(ensemble_names, how='left', on=ensemble_col)
 
-        self.zone_coordinates['ensemble'] = correspondence[ensemble_col].values
+        self.zone_coordinates[name] = correspondence[ensemble_col].values
         if ensemble_names_fp is not None:
-            self.zone_coordinates['ensemble_name'] = correspondence[ensemble_names_col]
+            self.zone_coordinates[f'{name}_label'] = correspondence[ensemble_names_col]
         self._logger.report('Added ensembles to zone coordinates')
 
     @staticmethod
