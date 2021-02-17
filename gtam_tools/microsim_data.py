@@ -10,7 +10,7 @@ from balsa.routines import distance_matrix, read_mdf
 from balsa.logging import get_model_logger
 from cheval import LinkedDataFrame
 
-from .enums import TimeFormat, SpecialZones
+from .enums import TimeFormat, ZoneNums
 
 
 def _load_model_activity_pairs() -> pd.Series:
@@ -229,8 +229,8 @@ class MicrosimData(object):
         assert skim_fp.exists(), f'Skim file not found at `{skim_fp.as_posix()}`'
 
         skim_data = read_mdf(skim_fp, raw=False, tall=True)
-        mask1 = skim_data.index.get_level_values(0) <= SpecialZones.MAX_INTERNAL
-        mask2 = skim_data.index.get_level_values(1) <= SpecialZones.MAX_INTERNAL
+        mask1 = skim_data.index.get_level_values(0) <= ZoneNums.MAX_INTERNAL
+        mask2 = skim_data.index.get_level_values(1) <= ZoneNums.MAX_INTERNAL
         skim_data = skim_data[mask1 & mask2].reindex(self.impedances.index)
 
         skim_data = skim_data * scale_unit
@@ -311,7 +311,7 @@ class MicrosimData(object):
         taz_col = taz_col.lower()
         zones_df[taz_col] = zones_df[taz_col].astype(int)
 
-        zones_df = zones_df[zones_df[taz_col] <= SpecialZones.MAX_INTERNAL].copy()  # Keep internal zones only
+        zones_df = zones_df[zones_df[taz_col] <= ZoneNums.MAX_INTERNAL].copy()  # Keep internal zones only
 
         zones_df.set_index(taz_col, inplace=True)
         zones_df = zones_df.to_crs({'init': to_crs})  # reproject
