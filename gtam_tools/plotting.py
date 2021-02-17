@@ -1,13 +1,13 @@
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from typing import Dict, Tuple, Union
+from typing import Dict, List, Tuple, Union, Hashable
 
 
-def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, ref_label: str, data_label: str,
-                           category_labels: Dict = None, controls_name: str = 'controls', result_name: str = 'model',
-                           figure_title: str = None, figure_height: int = None, identity_line: bool = True,
-                           identity_colour: str = 'red', padding_value: int = 0,
+def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, ref_label: Union[str, List[str]],
+                           data_label: str, category_labels: Dict = None, controls_name: str = 'controls',
+                           result_name: str = 'model', figure_title: str = None, figure_height: int = None,
+                           identity_line: bool = True, identity_colour: str = 'red', padding_value: int = 0,
                            **kwargs) -> Tuple[pd.DataFrame, go.Figure]:
     """Creates an interactive Plotly scatterplot to compare data.
 
@@ -15,7 +15,8 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
         controls_df (pd.DataFrame): A DataFrame containing control values. Must be in wide-format where rows represent
             a reference (e.g. count station, TAZ, geography, etc.) and columns represent the data categories.
         result_df (pd.DataFrame): A DataFrame containing modelled values. Uses the same format as `controls_df`.
-        ref_label (str): The reference variable name use.
+        ref_label (Union[str, List[str]]): The reference variable name(s) use. A list of names is required if
+            ``controls_df`` and ``result_df`` indices are MultiIndex objects
         data_label (str): The data variable name to use.
         category_labels (Dict, optional): Defaults to ``None``. Category labels used to rename the `controls_df` and
             `result_df` columns.
@@ -31,9 +32,16 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
         kwargs: Keyword/value pairs used to when creating Plotly figures.
     """
 
+    if isinstance(ref_label, Hashable):
+        ref_label = [ref_label]
+    elif isinstance(ref_label, List):
+        pass
+    else:
+        raise RuntimeError('Invalid data type provided for `ref_label`')
+
     # Prepare data for plotting
     df = controls_df.stack()
-    df.index.names = [ref_label, data_label]
+    df.index.names = [*ref_label, data_label]
     df = df.to_frame(name=controls_name)
 
     df[result_name] = result_df.stack()
@@ -50,7 +58,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
     axis_range = [lower_val, upper_val]
 
     # Plot figure
-    fig = px.scatter(df, x=controls_name, y=result_name, hover_data=[ref_label], range_x=axis_range, range_y=axis_range,
+    fig = px.scatter(df, x=controls_name, y=result_name, hover_data=ref_label, range_x=axis_range, range_y=axis_range,
                      **kwargs)
     fig.for_each_annotation(lambda a: a.update(text=a.text.split('=')[-1]))
 
