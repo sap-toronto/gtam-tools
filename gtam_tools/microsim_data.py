@@ -487,12 +487,12 @@ class MicrosimData(object):
         persons.loc[(persons['age'] >= 18) & (persons['student_status'].isin({'F', 'P'})), 'person_type'] = 'U'  # University/College
         persons['person_type'] = persons['person_type'].astype('category')
 
-        self._logger.debug('Classifying `student_type`')
-        persons['student_type'] = 'O'
-        persons.loc[persons['age'] < 13, 'student_type'] = 'P'  # Primary
-        persons.loc[persons['age'].between(13, 17), 'student_type'] = 'S'  # Secondary
-        persons.loc[persons['person_type'] == 'U', 'student_type'] = 'U'  # University/College
-        persons['student_type'] = persons['student_type'].astype('category')
+        self._logger.debug('Classifying `student_class`')
+        persons['student_class'] = 'O'
+        persons.loc[persons['age'] < 13, 'student_class'] = 'P'  # Primary
+        persons.loc[persons['age'].between(13, 17), 'student_class'] = 'S'  # Secondary
+        persons.loc[persons['person_type'] == 'U', 'student_class'] = 'U'  # University/College
+        persons['student_class'] = persons['student_class'].astype('category')
 
         self._logger.debug('Classifying `occ_emp`')  # combine occupation and employment status into one identifier
         persons['occ_emp'] = 'O'
