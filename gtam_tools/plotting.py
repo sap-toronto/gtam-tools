@@ -99,9 +99,10 @@ def _simplify_tlfd_index(df: Union[pd.DataFrame, pd.Series], low: float = -2.0,
     return new_df
 
 
-def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, bin_start: int = 0,
-                    bin_end: int = 200, bin_step: int = 2, figure_title: str = None, figure_height: int = None,
-                    controls_line_colour: str = 'red',  **kwargs) -> Tuple[pd.DataFrame, pd.DataFrame, go.Figure]:
+def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, category_labels: Dict = None,
+                    bin_start: int = 0, bin_end: int = 200, bin_step: int = 2, figure_title: str = None,
+                    figure_height: int = None, controls_line_colour: str = 'red',
+                    **kwargs) -> Tuple[pd.DataFrame, go.Figure]:
     """Create an interactive Plotly facet plot of TLFD diagrams using the trips table from a MicrosimData instance and a
     targets table.
 
@@ -110,6 +111,8 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
             to the bins and columns correspond to the trips by category/group)
         result_df (pd.DataFrame): A Pandas DataFrame containing the model TLFDs in wide format (same ``controls_df``)
         data_label (str): The name to use for the data represented by the category/groups columns.
+        category_labels (Dict, optional): Defaults to ``None``. Category labels used to rename the `controls_df` and
+            `result_df` columns.
         bin_start (int): Defaults is ``0``. The minimum bin value.
         bin_end (int): Defaults to ``200``. The maximum bin value.
         bin_step (int): Default is ``2``. The size of each bin.
@@ -136,6 +139,9 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
     df = _simplify_tlfd_index(model_tlfd_dist, low=bin_start - bin_step, high=bin_end).stack().to_frame(name='model')
     df['target'] = _simplify_tlfd_index(targets_tlfd_dist, low=bin_start - bin_step, high=bin_end).stack()
     df.reset_index(inplace=True)
+
+    if category_labels is not None:
+        df[data_label] = df[data_label].map(category_labels)
 
     # Plot base figure
     facet_cols = 2
