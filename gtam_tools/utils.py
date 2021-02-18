@@ -6,7 +6,7 @@ from shapely.wkb import loads, dumps
 from typing import Union
 
 
-def format_gdf(gdf: gpd.GeoDataFrame, index_col: str = None) -> gpd.GeoDataFrame:
+def format_gdf(gdf: gpd.GeoDataFrame, *, index_col: str = None) -> gpd.GeoDataFrame:
     """A function to prepare a GeoDataFrame for usage.
 
     Args:

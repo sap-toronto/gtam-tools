@@ -5,7 +5,7 @@ from typing import Dict, List, Tuple, Union, Hashable
 
 
 def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, ref_label: Union[str, List[str]],
-                           data_label: str, category_labels: Dict = None, controls_name: str = 'controls',
+                           data_label: str, *, category_labels: Dict = None, controls_name: str = 'controls',
                            result_name: str = 'model', figure_title: str = None, figure_height: int = None,
                            identity_line: bool = True, identity_colour: str = 'red', padding_value: int = 0,
                            **kwargs) -> Tuple[pd.DataFrame, go.Figure]:
@@ -99,9 +99,9 @@ def _simplify_tlfd_index(df: Union[pd.DataFrame, pd.Series], low: float = -2.0,
     return new_df
 
 
-def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, category_labels: Dict = None,
-                    bin_start: int = 0, bin_end: int = 200, bin_step: int = 2, figure_title: str = None,
-                    figure_height: int = None, controls_line_colour: str = 'red',
+def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
+                    category_labels: Dict = None, bin_start: int = 0, bin_end: int = 200, bin_step: int = 2,
+                    figure_title: str = None, figure_height: int = None, controls_line_colour: str = 'red',
                     **kwargs) -> Tuple[pd.DataFrame, go.Figure]:
     """Create an interactive Plotly facet plot of TLFD diagrams using the trips table from a MicrosimData instance and a
     targets table.

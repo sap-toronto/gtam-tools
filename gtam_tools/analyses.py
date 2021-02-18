@@ -4,7 +4,7 @@ from balsa.routines import tlfd
 from cheval import LinkedDataFrame
 
 
-def extract_tflds(trips_df: LinkedDataFrame, agg_col: str, impedance_method: str = 'manhattan', bin_start: int = 0,
+def extract_tflds(trips_df: LinkedDataFrame, agg_col: str, *, impedance_method: str = 'manhattan', bin_start: int = 0,
                   bin_end: int = 200, bin_step: int = 2) -> pd.DataFrame:
     """A function to extract TLFDs from the model results trip table.
 
@@ -33,7 +33,7 @@ def extract_tflds(trips_df: LinkedDataFrame, agg_col: str, impedance_method: str
     return model_tlfds
 
 
-def extract_e2e_trips(trips_df: LinkedDataFrame, ensembles: pd.Series, agg_col: str = None):
+def extract_e2e_trips(trips_df: LinkedDataFrame, ensembles: pd.Series, *, agg_col: str = None):
     """A function to extract ensemble-to-ensemble trips from the model results trip table.
 
     Args:

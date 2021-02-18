@@ -123,7 +123,7 @@ class MicrosimData(object):
         return self._impedances
 
     @staticmethod
-    def load_folder(run_folder: Union[str, Path], link_tables: bool = True, derive_additional_variables: bool = True,
+    def load_folder(run_folder: Union[str, Path], *, link_tables: bool = True, derive_additional_variables: bool = True,
                     time_format=TimeFormat.MINUTE_DELTA, zones_file: Union[str, Path] = None, taz_col: str = None,
                     zones_crs: str = None, to_crs: str = 'EPSG:26917', coord_unit: float = 0.001) -> 'MicrosimData':
         """Load GTAModel Microsim Result tables from a specified folder.
@@ -212,7 +212,7 @@ class MicrosimData(object):
 
         return data
 
-    def add_impedance_skim(self, name: str, skim_fp: Union[str, Path], scale_unit: float = 1.0,
+    def add_impedance_skim(self, name: str, skim_fp: Union[str, Path], *, scale_unit: float = 1.0,
                            ignore_missing_ods: bool = False):
         """Add a skim from a matrix binary file as impedance values to the impedances table.
 
@@ -243,7 +243,7 @@ class MicrosimData(object):
         self.impedances[name] = skim_data
         self._logger.report(f'Added `{name}` to impedances')
 
-    def add_zone_ensembles(self, name: str, definition_fp: Union[str, Path], taz_col: str,
+    def add_zone_ensembles(self, name: str, definition_fp: Union[str, Path], taz_col: str, *,
                            ensemble_col: str = 'ensemble', missing_val: int = 9999,
                            ensemble_names_fp: Union[str, Path] = None, ensemble_names_col: str = 'name'):
         """Add zone ensemble definitions to the zone coordinates table.
@@ -483,14 +483,14 @@ class MicrosimData(object):
         persons.loc[persons['age'] >= 65, 'person_type'] = 'R'  # Retired
         persons.loc[persons['employment_status'] == 'F', 'person_type'] = 'F'  # Full-time Worker
         persons.loc[persons['employment_status'] == 'P', 'person_type'] = 'P'  # Part-time Worker
-        persons.loc[persons['age'] < 18, 'person_type'] = 'S'  # Student
-        persons.loc[(persons['age'] >= 18) & (persons['student_status'].isin({'F', 'P'})), 'person_type'] = 'U'  # University/College
+        persons.loc[persons['age'] <= 18, 'person_type'] = 'S'  # Student
+        persons.loc[(persons['age'] > 18) & (persons['student_status'].isin({'F', 'P'})), 'person_type'] = 'U'  # University/College
         persons['person_type'] = persons['person_type'].astype('category')
 
         self._logger.debug('Classifying `student_class`')
         persons['student_class'] = 'O'
-        persons.loc[persons['age'] < 13, 'student_class'] = 'P'  # Primary
-        persons.loc[persons['age'].between(13, 17), 'student_class'] = 'S'  # Secondary
+        persons.loc[persons['age'].between(11, 13), 'student_class'] = 'P'  # Primary
+        persons.loc[persons['age'].between(14, 18), 'student_class'] = 'S'  # Secondary
         persons.loc[persons['person_type'] == 'U', 'student_class'] = 'U'  # University/College
         persons['student_class'] = persons['student_class'].astype('category')
 
