@@ -17,7 +17,7 @@ requirements:
     - python >=3.6
     - geopandas
     - numpy
-    - pandas 0.23.4
+    - pandas
     - plotly
     - wsp-balsa
     - wsp-cheval

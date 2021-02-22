@@ -23,7 +23,7 @@ setup(
     install_requires=[
         'geopandas',
         'numpy',
-        'pandas==0.23.4',
+        'pandas',
         'plotly',
         'wsp-balsa',
         'wsp-cheval'
