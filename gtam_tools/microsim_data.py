@@ -14,7 +14,7 @@ from .enums import TimeFormat, ZoneNums
 
 
 def _load_model_activity_pairs() -> pd.Series:
-    stream = pkg_resources.resource_stream(__name__, 'resources/activity_pairs_model.csv')
+    stream = pkg_resources.resource_stream(__name__, 'resource_data/activity_pairs_model.csv')
     return pd.read_csv(stream, index_col=[0, 1], squeeze=True)
 
 

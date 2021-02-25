@@ -1,0 +1,57 @@
+countpost,region_name,station_id,station_desc
+532122,Halton,3212E,407 ETR West of Winston Churchill Blvd
+532124,Halton,3212W,407 ETR West of Winston Churchill Blvd
+550011,Halton,5001N,Highway 407/ETR North of Derry Rd
+550013,Halton,5001S,Highway 407/ETR North of Derry Rd
+550022,Halton,5002E,Highway 407/ETR West of 9th Line
+550024,Halton,5002W,Highway 407/ETR West of 9th Line
+550032,Halton,5003E,Highway 407/ETR East of Regional Rd #25
+550034,Halton,5003W,Highway 407/ETR East of Regional Rd #25
+550042,Halton,5004E,Highway 407/ETR East of Walkers Line
+550044,Halton,5004W,Highway 407/ETR East of Walkers Line
+550052,Halton,5005E,Highway 407/ETR South of Dundas St
+550054,Halton,5005W,Highway 407/ETR South of Dundas St
+550061,Halton,5006N,Highway 407/ETR North of Lower Base Line
+550063,Halton,5006S,Highway 407/ETR North of Lower Base Line
+550021,Halton,5002N,Highway 407/ETR West of 9th Line
+550023,Halton,5002S,Highway 407/ETR West of 9th Line
+550032,Halton,5003E,Highway 407/ETR East of Regional Rd 25
+550034,Halton,5003W,Highway 407/ETR East of Regional Rd 25
+550062,Halton,5006E,Highway 407/ETR North of Lower Base Line
+550064,Halton,5006W,Highway 407/ETR North of Lower Base Line
+550051,Halton,5005N,Highway 407/ETR South of Dundas St
+550053,Halton,5005S,Highway 407/ETR South of Dundas St
+404072,Peel,407E,Highway 407 at Peel/York Boundary
+404074,Peel,407W,Highway 407 at Peel/York Boundary
+404082,Peel,408E,Highway 407 East of Highway 410
+404084,Peel,408W,Highway 407 East of Highway 410
+404092,Peel,409E,Highway 407 East of Highway 10
+404094,Peel,409W,Highway 407 East of Highway 10
+404102,Peel,410E,Highway 407 at Credit River
+404104,Peel,410W,Highway 407 at Credit River
+404112,Peel,411E,Highway 407 West of Winston Churchill Blvd
+404114,Peel,411W,Highway 407 West of Winston Churchill Blvd
+404121,Peel,412N,Highway 407 North of Derry Rd
+404123,Peel,412S,Highway 407 North of Derry Rd
+404162,Peel,416E,Highway 407 West of Highway 403
+404164,Peel,416W,Highway 407 West of Highway 403
+404171,Peel,417N,Highway 407 North of Lower Baseline
+404173,Peel,417S,Highway 407 North of Lower Baseline
+303012,York,301E,Highway 407 East of Highway 50 (YR 24)
+303014,York,301W,Highway 407 East of Highway 50 (YR 24)
+306012,York,601E,Highway 407 East of Highway 400
+306014,York,601W,Highway 407 East of Highway 400
+307022,York,702E,Highway 407 West of Highway 404
+307024,York,702W,Highway 407 West of Highway 404
+310022,York,1002E,Highway 407 West of Bathurst St (YR 38)
+310024,York,1002W,Highway 407 West of Bathurst St (YR 38)
+302012,York,201E,Highway 407 West of York-Durham Line (YR 30)
+302014,York,201W,Highway 407 West of York-Durham Line (YR 30)
+311022,York,1102E,Highway 407 West of McCowan Rd
+311024,York,1102W,Highway 407 West of McCowan Rd
+262092,Durham,6209E,Highway 407 West of Brock Rd (Taunton Rd to North Limit)
+262094,Durham,6209W,Highway 407 West of Brock Rd (Taunton Rd to North Limit)
+264012,Durham,6401E,Highway 407 West of Durham West Limit (North of Taunton Rd to Regional Highway 47)
+264014,Durham,6401W,Highway 407 West of Durham West Limit (North of Taunton Rd to Regional Highway 47)
+237062,Durham,3706E,Highway 407 (North of Taunton Rd to North Limit)
+237064,Durham,3706W,Highway 407 (North of Taunton Rd to North Limit)

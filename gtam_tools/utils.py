@@ -77,7 +77,7 @@ def read_tts_cross_tabulation_file(fp: Union[str, Path]) -> pd.DataFrame:
                 if line.strip().startswith(row_att) or line.strip().startswith(','):
                     header_row = i
                     break
-        df = _read_csv_tts_ct_data(fp, row_att, col_att, skip_rows=header_row - 1, skipinitialspace=True)
+        table = _read_csv_tts_ct_data(fp, row_att, col_att, skip_rows=header_row - 1, skipinitialspace=True)
 
     return table
 

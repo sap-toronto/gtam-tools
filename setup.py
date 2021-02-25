@@ -18,7 +18,7 @@ setup(
         'License :: OSI Approved :: MIT License'
     ],
     packages=find_packages(),
-    package_data={'': ['resources/*.csv']},
+    package_data={'': ['resource_data/*.csv']},
     python_requires='>=3.6',
     install_requires=[
         'geopandas',
