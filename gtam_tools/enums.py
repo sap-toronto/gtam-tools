@@ -1,9 +1,19 @@
+from collections import namedtuple
 from enum import Enum, IntEnum
+
+_PHF = namedtuple('PHF', ['AUTO', 'LIGHT', 'MEDIUM', 'HEAVY'])
 
 
 class PCEFactors(Enum):
     MEDIUM = 1.7
     HEAVY = 2.5
+
+
+class PHFactors(Enum):
+    AM = _PHF(0.469, 0.375068449, 0.419647872, 0.362607633)
+    MD = _PHF(0.16666667, 0.177191204, 0.171328985, 0.176942152)
+    PM = _PHF(0.307, 0.284041959, 0.325994799, 0.317223218)
+    EV = _PHF(0.2, 0.2, 0.2, 0.2)
 
 
 class TimeFormat(Enum):
