@@ -5,11 +5,12 @@ _PHF = namedtuple('PHF', ['AUTO', 'LIGHT', 'MEDIUM', 'HEAVY'])
 
 
 class PCEFactors(Enum):
-    MEDIUM = 1.7
+    MEDIUM = 1.75
     HEAVY = 2.5
 
 
 class PHFactors(Enum):
+    # Notation of PHFactors: _PHF(Auto, Light, Medium, Heavy)
     AM = _PHF(0.469, 0.375068449, 0.419647872, 0.362607633)
     MD = _PHF(0.16666667, 0.177191204, 0.171328985, 0.176942152)
     PM = _PHF(0.307, 0.284041959, 0.325994799, 0.317223218)
