@@ -1,19 +1,20 @@
 import pandas as pd
+from typing import Union
 
 from balsa.routines import tlfd
 from cheval import LinkedDataFrame
 
 
-def extract_tflds(trips_df: LinkedDataFrame, agg_col: str, *, impedance_method: str = 'manhattan', bin_start: int = 0,
-                  bin_end: int = 200, bin_step: int = 2) -> pd.DataFrame:
+def extract_tflds(trips_df: Union[pd.DataFrame, LinkedDataFrame], agg_col: str, *, impedance_col: str = 'impedance',
+                  bin_start: int = 0, bin_end: int = 200, bin_step: int = 2) -> pd.DataFrame:
     """A function to extract TLFDs from the model results trip table.
 
     Args:
-        trips_df (LinkedDataFrame): The trips table from the Microsim results. Ideally, this table would be from
-            ``MicrosimData.trips``.
+        trips_df (Union[pd.DataFrame, LinkedDataFrame]): The trips table from the Microsim results. Ideally, this table
+            would be from ``MicrosimData.trips``.
         agg_col (str): The name of the column in the trips table to plot TLFDs by category/group.
-        impedance_method (str, optional): Defaults to ``'manhattan'``. The impedance method to calculate TLFDs. Must be
-            a valid impedance availble in ``MicrosimData.impedances``.
+        impedance_col (str, optional): Defaults to ``'impedance'``. The column in ``trips_df`` containing the impedances
+            to use for calculating TFLDs.
         bin_start (int): Defaults is ``0``. The minimum bin value.
         bin_end (int): Defaults to ``200``. The maximum bin value.
         bin_step (int): Default is ``2``. The size of each bin.
@@ -23,9 +24,9 @@ def extract_tflds(trips_df: LinkedDataFrame, agg_col: str, *, impedance_method: 
     """
     model_tlfds = {}
     for label, subset in trips_df.groupby(agg_col):
-        impedances = getattr(subset.imped, impedance_method)
-        fd = tlfd(impedances, bin_start=bin_start, bin_end=bin_end, bin_step=bin_step, weights=subset['weight'],
-                  intrazonal=subset['o_zone'] == subset['d_zone'], label_type='MULTI', include_top=True)
+        fd = tlfd(subset[impedance_col], bin_start=bin_start, bin_end=bin_end, bin_step=bin_step,
+                  weights=subset['weight'], intrazonal=subset['o_zone'] == subset['d_zone'], label_type='MULTI',
+                  include_top=True)
         model_tlfds[label] = fd
     model_tlfds = pd.DataFrame(model_tlfds)
     model_tlfds.columns.name = agg_col
@@ -33,12 +34,12 @@ def extract_tflds(trips_df: LinkedDataFrame, agg_col: str, *, impedance_method: 
     return model_tlfds
 
 
-def extract_e2e_trips(trips_df: LinkedDataFrame, ensembles: pd.Series, *, agg_col: str = None):
+def extract_e2e_trips(trips_df: Union[pd.DataFrame, LinkedDataFrame], ensembles: pd.Series, *, agg_col: str = None):
     """A function to extract ensemble-to-ensemble trips from the model results trip table.
 
     Args:
-        trips_df (LinkedDataFrame): The trips table from the Microsim results. Ideally, this table would be from
-            ``MicrosimData.trips``.
+        trips_df (Union[pd.DataFrame, LinkedDataFrame]): The trips table from the Microsim results. Ideally, this table
+            would be from ``MicrosimData.trips``.
         ensembles (pd.Series): The TAZ to ensemble definition to use.
         agg_col (str, optional): Defaults to ``None``. The name of the column in the trips table to aggregate by
             category/group.
