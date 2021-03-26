@@ -34,29 +34,30 @@ def extract_tflds(trips_df: Union[pd.DataFrame, LinkedDataFrame], agg_col: str, 
     return model_tlfds
 
 
-def extract_e2e_trips(trips_df: Union[pd.DataFrame, LinkedDataFrame], ensembles: pd.Series, *, agg_col: str = None):
-    """A function to extract ensemble-to-ensemble trips from the model results trip table.
+def extract_e2e_linkages(table: Union[pd.DataFrame, LinkedDataFrame], ensembles: pd.Series, *, agg_col: str = None,
+                         orig_col: str = 'o_zone', dest_col: str = 'd_zone'):
+    """A function to extract ensemble-to-ensemble linkages from the model results.
 
     Args:
-        trips_df (Union[pd.DataFrame, LinkedDataFrame]): The trips table from the Microsim results. Ideally, this table
-            would be from ``MicrosimData.trips``.
+        table (Union[pd.DataFrame, LinkedDataFrame]): The table from the Microsim results. Ideally, this table
+            would be from ``MicrosimData.trips`` or ``MicrosimData.persons``.
         ensembles (pd.Series): The TAZ to ensemble definition to use.
         agg_col (str, optional): Defaults to ``None``. The name of the column in the trips table to aggregate by
             category/group.
     """
-    trips = trips_df.copy()
-    trips['o_ensemble'] = ensembles.reindex(trips['o_zone']).values
-    trips['d_ensemble'] = ensembles.reindex(trips['d_zone']).values
+    df = table.copy()
+    df['o_ensemble'] = ensembles.reindex(df[orig_col]).values
+    df['d_ensemble'] = ensembles.reindex(df[dest_col]).values
 
     usecols = ['o_ensemble', 'd_ensemble']
     if agg_col is not None:
         usecols.append(agg_col)
 
-    e2e_trips = trips.groupby(usecols).agg({'weight': 'sum'})
+    e2e_df = df.groupby(usecols).agg({'weight': 'sum'})
     if agg_col is not None:
-        e2e_trips = e2e_trips.unstack().fillna(0)
-        e2e_trips.columns = e2e_trips.columns.droplevel(0)
+        e2e_df = e2e_df.unstack().fillna(0)
+        e2e_df.columns = e2e_df.columns.droplevel(0)
     else:
-        e2e_trips.rename(columns={'weight': 'trips'}, inplace=True)
+        e2e_df.rename(columns={'weight': 'trips'}, inplace=True)
 
-    return e2e_trips
+    return e2e_df
