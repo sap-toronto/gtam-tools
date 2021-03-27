@@ -169,7 +169,7 @@ class MicrosimData(object):
             if compressed.exists():
                 return compressed
 
-            raise FileExistsError(f'Could not find the `{name}` output file.')
+            raise FileNotFoundError(f'Could not find the `{name}` output file.')
 
         households_fp = _prep_file('households')
         persons_fp = _prep_file('persons')
@@ -179,13 +179,13 @@ class MicrosimData(object):
 
         try:
             fpass_fp = _prep_file('facilitate_passenger')
-        except FileExistsError:
+        except FileNotFoundError:
             fpass_fp = None
 
         if zones_file is not None:
             zones_file = Path(zones_file)
             if not zones_file.exists():
-                raise FileExistsError(f'Zone attribute file could not be found at {zones_file.as_posix()}')
+                raise FileNotFoundError(f'Zone attribute file could not be found at {zones_file.as_posix()}')
 
         MicrosimData._logger.tip(f'Loading Microsim Results from `{run_folder.as_posix()}`')
 
