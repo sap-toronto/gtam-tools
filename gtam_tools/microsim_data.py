@@ -510,7 +510,7 @@ class MicrosimData(object):
     def _derive_trip_variables(self):
         trips = self.trips
 
-        self._logger.info('Deriving addition trip variables')
+        self._logger.info('Deriving additional trip variables')
 
         self._logger.debug('Classifying `purpose`')
         lookup_table = _load_model_activity_pairs()  # Essentially, `purpose` is being classified on `d_act`...
