@@ -4,6 +4,13 @@ from enum import Enum, IntEnum
 _PHF = namedtuple('PHF', ['AUTO', 'LIGHT', 'MEDIUM', 'HEAVY'])
 
 
+class CordonCountDir(IntEnum):
+    NORTH = 1
+    SOUTH = 3
+    EAST = 2
+    WEST = 4
+
+
 class PCEFactors(Enum):
     MEDIUM = 1.75
     HEAVY = 2.5
