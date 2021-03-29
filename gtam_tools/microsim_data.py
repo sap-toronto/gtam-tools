@@ -374,9 +374,9 @@ class MicrosimData(object):
 
     @staticmethod
     def _convert_time_to_hours(column: pd.Series, time_format: TimeFormat) -> pd.Series:
-        if time_format == time_format.MINUTE_DELTA:
+        if time_format == TimeFormat.MINUTE_DELTA:
             return MicrosimData._floordiv_minutes(column)
-        elif time_format == time_format.COLON_SEP:
+        elif time_format == TimeFormat.COLON_SEP:
             return MicrosimData._convert_text_to_datetime(column)
         else:
             raise NotImplementedError(time_format)
