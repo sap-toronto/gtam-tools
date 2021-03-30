@@ -15,10 +15,10 @@ requirements:
     - python
   run:
     - python >=3.6
+    - bokeh
     - geopandas
     - numpy
     - pandas
-    - plotly
     - wsp-balsa
     - wsp-cheval
 
