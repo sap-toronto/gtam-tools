@@ -21,10 +21,10 @@ setup(
     package_data={'': ['resource_data/*.csv']},
     python_requires='>=3.6',
     install_requires=[
+        'bokeh',
         'geopandas',
         'numpy',
         'pandas',
-        'plotly',
         'wsp-balsa',
         'wsp-cheval'
     ]
