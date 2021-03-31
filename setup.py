@@ -12,7 +12,7 @@ setup(
     description='A Python package for handling GTAModel data',
     url='https://github.com/sap-toronto/gtam-tools',
     author='WSP',
-    maintatiner='Brian Cheung',
+    maintainer='Brian Cheung',
     maintainer_email='brian.cheung@wsp.com',
     classifiers=[
         'License :: OSI Approved :: MIT License'
