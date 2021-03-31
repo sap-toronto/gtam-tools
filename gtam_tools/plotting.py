@@ -1,5 +1,5 @@
 from bokeh.plotting import Figure, figure
-from bokeh.models import CDSView, ColumnDataSource, Div, GroupFilter
+from bokeh.models import CDSView, ColumnDataSource, Div, GroupFilter, Slope
 from bokeh.layouts import Column, column, GridBox, gridplot
 from bokeh.palettes import Category20
 import pandas as pd
@@ -78,7 +78,6 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
         df[data_label] = df[data_label].map(category_labels)
 
     # Prepare figure formatting values
-    max_val = int(df[[controls_name, result_name]].round(0).max().max())
     source = ColumnDataSource(df)
     tooltips = [(controls_name, f'@{controls_name}{{0,0.0}}'), (result_name, f'@{result_name}{{0,0.0}}')]
     if hover_col is not None:
@@ -98,8 +97,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
         'x': controls_name, 'y': result_name, 'size': size, 'fill_alpha': fill_alpha, 'hover_color': 'red'
     }
 
-    def add_identity_line(p_: Figure):
-        p_.line([0, max_val], [0, max_val], color=identity_colour, line_width=identity_width)
+    slope = Slope(gradient=1, y_intercept=0, line_color=identity_colour, line_dash='dashed', line_width=identity_width)
 
     def apply_legend_settings(p_: Figure):
         p_.legend.visible = glyph_legend
@@ -111,8 +109,6 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
     # Plot figure
     if facet_col is None:  # Basic plot
         p = figure(plot_height=plot_height, sizing_mode='stretch_width', **figure_params)
-        if identity_line:
-            add_identity_line(p)
 
         if glyph_col is None:  # Basic plot
             p.circle(source=source, **glyph_params)
@@ -122,6 +118,10 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
                 source_view = CDSView(source=source, filters=[GroupFilter(column_name=glyph_col, group=gc)])
                 p.circle(source=source, view=source_view, legend_label=gc, color=color_palette[i], **glyph_params)
             apply_legend_settings(p)
+
+        if identity_line:
+            p.add_layout(slope)
+
         fig = p
     else:  # Facet plot
         fig = []
@@ -129,8 +129,6 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
         facet_column_items = sorted(facet_column_items) if sort_facet_order else facet_column_items
         for fc in facet_column_items:
             p = figure(title=fc, **figure_params)
-            if identity_line:
-                add_identity_line(p)
 
             filters = [GroupFilter(column_name=facet_col, group=fc)]
             if glyph_col is None:  # Basic facet plot
@@ -143,6 +141,10 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, r
                     source_view = CDSView(source=source, filters=filters_)
                     p.circle(source=source, view=source_view, legend_label=gc, color=color_palette[i], **glyph_params)
                 apply_legend_settings(p)
+
+            if identity_line:
+                p.add_layout(slope)
+
             fig.append(p)
         fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode='stretch_both', plot_height=plot_height, merge_tools=True)
 
