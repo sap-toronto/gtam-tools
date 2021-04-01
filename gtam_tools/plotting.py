@@ -100,13 +100,14 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     else:
         raise RuntimeError('Invalid data type provided for `ref_label`')
 
-    if hover_col is not None:
-        if isinstance(hover_col, Hashable):
-            hover_col = [hover_col]
-        elif isinstance(hover_col, List):
-            pass
-        else:
-            raise RuntimeError('Invalid data type provided for `ref_label`')
+    if hover_col is None:
+        hover_col = []
+    if isinstance(hover_col, Hashable):
+        hover_col = [hover_col]
+    elif isinstance(hover_col, List):
+        pass
+    else:
+        raise RuntimeError('Invalid data type provided for `ref_label`')
 
     # Prepare data for plotting
     df = controls_df.stack()
