@@ -40,12 +40,12 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         controls_df (pd.DataFrame): A DataFrame containing control values. Must be in wide-format where rows represent
             a reference (e.g. count station, TAZ, geography, etc.) and columns represent the data categories.
         result_df (pd.DataFrame): A DataFrame containing modelled values. Uses the same format as `controls_df`.
-        data_label (str): The data variable name to use.
-        ref_label (Union[str, List[str]], optional): Defaults to ``None``. The reference variable name(s) use
-            corresponding to the ``controls_df`` and ``result_df`` indices. A list of names is required if
-            ``controls_df`` and ``result_df`` indices are MultiIndex objects. The function will try to infer the names
-            from the source DataFrames. If the indicies of the DataFrames are not set, then values must be set for this
-            parameter, otherwise an error will be raised.
+        data_label (str): The name to use for the data represented by the `controls_df` and `result_df` columns.
+        ref_label (Union[str, List[str]], optional): Defaults to ``None``. The name(s) corresponding to the
+            ``controls_df`` and ``result_df`` indices. The function will try to infer the name(s) from indices of the
+            source DataFrames. If the indicies of the DataFrames are not set, then values must be set for this
+            parameter, otherwise an error will be raised. If providing a value to this parameter and the indices of the
+            source DataFrames are MultiIndex objects, then the provided value must be a list of strings.
         category_labels (Dict, optional): Defaults to ``None``. Category labels used to rename the `controls_df` and
             `result_df` columns.
         controls_name (str, optional): Defaults to ``'controls'``. The name for the controls.
@@ -218,9 +218,9 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
     and a targets table.
 
     Args:
-        controls_df (pd.DataFrame): A Pandas DataFrame containing TLFD targets in wide format (where rows correspond
-            to the bins and columns correspond to the trips by category/group)
-        result_df (pd.DataFrame): A Pandas DataFrame containing the model TLFDs in wide format (same ``controls_df``)
+        controls_df (pd.DataFrame): A DataFrame containing TLFD targets in wide format (where rows correspond to the
+            bins and columns correspond to the trips by category/group).
+        result_df (pd.DataFrame): A DataFrame containing the model TLFDs in wide format (same ``controls_df``).
         data_label (str): The name to use for the data represented by the category/groups columns.
         category_labels (Dict, optional): Defaults to ``None``. Category labels used to rename the `controls_df` and
             `result_df` columns.
