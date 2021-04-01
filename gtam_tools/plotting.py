@@ -211,8 +211,9 @@ def _simplify_tlfd_index(df: Union[pd.DataFrame, pd.Series], low: float = -2.0,
 def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
                     category_labels: Dict = None, bin_start: int = 0, bin_end: int = 200, bin_step: int = 2,
                     facet_col_wrap: int = 2, facet_sort_order: bool = True, facet_sync_axes: str = 'both',
-                    figure_title: str = None, plot_height: int = None, controls_line_colour: str = 'red',
-                    controls_line_width: int = 2) -> Tuple[pd.DataFrame, Union[Column, GridBox]]:
+                    legend_label_text_font_size: str = '11px', figure_title: str = None, plot_height: int = None,
+                    controls_line_colour: str = 'red', controls_line_width: int = 2
+                    ) -> Tuple[pd.DataFrame, Union[Column, GridBox]]:
     """Create an interactive Bokeh-based facet plot of TLFD diagrams using the trips table from a MicrosimData instance
     and a targets table.
 
@@ -231,6 +232,7 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
             sorted by unique ``facet_col`` values.
         facet_sync_axes (str, optional): Defaults to ``'both'``. Option to sync/link facet axes. Accepts one of
             ``['both', 'x', 'y']``. Set to None to disable linked facet plot axes.
+        legend_label_text_font_size (str, optional): Defaults to ``'11px'``. The text size of the legend labels.
         figure_title (str, optional): Defaults to ``None``. The chart title to use.
         plot_height (int, optional): Defaults to ``None``. The desired plot height. For facet plots, this value will be
             set for each subplot.
@@ -264,7 +266,7 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
         df[data_label] = df[data_label].map(category_labels)
 
     # Prepare figure formatting values
-    tooltips = [('bin_start', '@bin_start'), ('model', '@model{0.3f}'), ('target', '@target{0.3f}')]
+    tooltips = [('bin_start', '@bin_start'), ('Model', '@model{0.3f}'), ('Target', '@target{0.3f}')]
     figure_params = _prep_figure_params('Bin', 'Proportion', tooltips, plot_height)
 
     # Plot figure
@@ -276,10 +278,11 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
         p = figure(title=fc, **figure_params, **linked_axes)
         subset = df[df[data_label] == fc]  # We do it this way because CDSView doesn't support connected lines
         source = ColumnDataSource(subset)
-        p.line(x='bin_start', y='target', line_color=controls_line_colour, line_width=controls_line_width,
-               source=source)
-        p.vbar(x='bin_start', top='model', bottom=0, source=source)
-        p.x_range.range_padding = 0.1
+        p.line(source=source, x='bin_start', y='target', line_color=controls_line_colour,
+               line_width=controls_line_width, legend_label='Target')
+        p.vbar(source=source, x='bin_start', top='model', bottom=0, width=1.25, legent_label='Model')
+        p.y_range.start = 0
+        p.legend.label_text_font_size = legend_label_text_font_size
 
         if (i==0) and (facet_sync_axes is not None):
             if facet_sync_axes.lower() in ['x', 'both']:
