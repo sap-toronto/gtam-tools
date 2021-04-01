@@ -8,7 +8,7 @@ from typing import Dict, List, Tuple, Union, Hashable
 import warnings
 
 
-def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[str]], plot_height: int = None):
+def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable, Hashable]], plot_height: int = None):
     figure_params = {
         'x_axis_label': x_label, 'y_axis_label': y_label, 'tooltips': tooltips, 'toolbar_location': 'above',
         'tools': 'pan,zoom_in,zoom_out,box_zoom,wheel_zoom,hover,save,reset', 'output_backend': 'webgl'
@@ -81,17 +81,17 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     """
 
     if not controls_df.index.equals(result_df.index):
-        warnings.warn('Indices for `controls_df` and `result_df` are not identical; function may not produce desired ' \
+        warnings.warn('Indices for `controls_df` and `result_df` are not identical; function may not produce desired '
                       'results')
     if not controls_df.columns.equals(result_df.columns):
-        warnings.warn('Columns for `controls_df` and `result_df` are not identical; function may not produce desired ' \
+        warnings.warn('Columns for `controls_df` and `result_df` are not identical; function may not produce desired '
                       'results')
 
     if ref_label is None:
         assert np.all(controls_df.index.names == result_df.index.names), 'Unable to resolve different index names, ' \
                                                                          'please specify values for `ref_label` instead'
-        assert not None in controls_df.index.names, 'Some index levels in `controls_df` do not have names'
-        assert not None in result_df.index.names, 'Some index levels in `result_df` do not have names'
+        assert not (None in controls_df.index.names), 'Some index levels in `controls_df` do not have names'
+        assert not (None in result_df.index.names), 'Some index levels in `result_df` do not have names'
         ref_label = list(controls_df.index.names)
     elif isinstance(ref_label, Hashable):
         ref_label = [ref_label]
@@ -176,7 +176,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                     p.circle(view=source_view, legend_label=gc, color=color_palette[j], **glyph_params)
                 apply_legend_settings(p)
 
-            if (i==0) and (facet_sync_axes is not None):
+            if (i == 0) and (facet_sync_axes is not None):
                 if facet_sync_axes.lower() in ['x', 'both']:
                     linked_axes['x_range'] = p.x_range
                 if facet_sync_axes.lower() in ['y', 'both']:
@@ -245,10 +245,10 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
     """
 
     if not controls_df.index.equals(result_df.index):
-        warnings.warn('Indices for `controls_df` and `result_df` are not identical; function may not produce desired ' \
+        warnings.warn('Indices for `controls_df` and `result_df` are not identical; function may not produce desired '
                       'results')
     if not controls_df.columns.equals(result_df.columns):
-        warnings.warn('Columns for `controls_df` and `result_df` are not identical; function may not produce desired ' \
+        warnings.warn('Columns for `controls_df` and `result_df` are not identical; function may not produce desired '
                       'results')
 
     # Calculate distributions
@@ -284,7 +284,7 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
         p.y_range.start = 0
         p.legend.label_text_font_size = legend_label_text_font_size
 
-        if (i==0) and (facet_sync_axes is not None):
+        if (i == 0) and (facet_sync_axes is not None):
             if facet_sync_axes.lower() in ['x', 'both']:
                 linked_axes['x_range'] = p.x_range
             if facet_sync_axes.lower() in ['y', 'both']:
