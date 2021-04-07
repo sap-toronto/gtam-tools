@@ -280,7 +280,7 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
         source = ColumnDataSource(subset)
         p.line(source=source, x='bin_start', y='target', line_color=controls_line_colour,
                line_width=controls_line_width, legend_label='Target')
-        p.vbar(source=source, x='bin_start', top='model', bottom=0, width=1.25, legent_label='Model')
+        p.vbar(source=source, x='bin_start', top='model', bottom=0, width=1.25, legend_label='Model', fill_alpha=0.2)
         p.y_range.start = 0
         p.legend.label_text_font_size = legend_label_text_font_size
 
