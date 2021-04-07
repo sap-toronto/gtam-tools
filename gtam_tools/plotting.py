@@ -32,7 +32,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                            hover_col: Union[str, List[str]] = None, glyph_col: str = None, glyph_legend: bool = True,
                            glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px',
                            figure_title: str = None, plot_height: int = None, identity_line: bool = True,
-                           identity_colour: str = 'red', identity_width: int = 2
+                           identity_colour: str = 'red', identity_width: int = 2, calc_pct_diff: bool = True
                            ) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]:
     """Creates an interactive Bokeh-based scatter plot to compare data.
 
@@ -75,6 +75,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         identity_colour (str, optional): Defaults to ``'red'``. The colour to use for the identity line. Accepts html
             colour names.
         identity_width (int, optional): Defaults to ``2``. The line width to use for the identity line.
+        calc_pct_diff (bool, optional): Defaults to ``True``. Include percent difference calculation in DataFrame output
 
     Returns:
         Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]
@@ -190,6 +191,10 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
     if figure_title is not None:
         fig = _wrap_figure_title(fig, figure_title)
+
+    if calc_pct_diff:
+        df['pct_diff'] = (df[result_name] - df[controls_name]) / df[controls_name] * 100
+        df['pct_diff'] = df['pct_diff'].replace(np.inf, 100).fillna(0)
 
     return df, fig
 
