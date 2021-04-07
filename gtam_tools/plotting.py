@@ -194,7 +194,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
     if calc_pct_diff:
         df['pct_diff'] = (df[result_name] - df[controls_name]) / df[controls_name] * 100
-        df['pct_diff'] = df['pct_diff'].replace(np.inf, 100).fillna(0)
+        df['pct_diff'] = df['pct_diff'].replace([np.inf, -np.inf], np.nan)
 
     return df, fig
 
