@@ -489,8 +489,8 @@ class MicrosimData(object):
 
         self._logger.debug('Classifying `student_class`')
         persons['student_class'] = 'O'
-        persons.loc[persons['age'].between(11, 13), 'student_class'] = 'P'  # Primary
-        persons.loc[persons['age'].between(14, 18), 'student_class'] = 'S'  # Secondary
+        persons.loc[persons['age'].between(6, 13), 'student_class'] = 'P'  # Primary, align with TTS
+        persons.loc[persons['age'].between(14, 17), 'student_class'] = 'S'  # Secondary
         persons.loc[persons['person_type'] == 'U', 'student_class'] = 'U'  # University/College
         persons['student_class'] = persons['student_class'].astype('category')
 
