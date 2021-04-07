@@ -478,20 +478,22 @@ class MicrosimData(object):
 
         self._logger.info('Deriving additional persons variables')
 
-        self._logger.debug('Classifying `person_type`')
-        persons['person_type'] = 'O'
-        persons.loc[persons['age'] >= 65, 'person_type'] = 'R'  # Retired
-        persons.loc[persons['employment_status'] == 'F', 'person_type'] = 'F'  # Full-time Worker
-        persons.loc[persons['employment_status'] == 'P', 'person_type'] = 'P'  # Part-time Worker
-        persons.loc[persons['age'] <= 18, 'person_type'] = 'S'  # Student
-        persons.loc[(persons['age'] > 18) & (persons['student_status'].isin({'F', 'P'})), 'person_type'] = 'U'  # University/College
-        persons['person_type'] = persons['person_type'].astype('category')
+        # self._logger.debug('Classifying `person_type`')
+        # persons['person_type'] = 'O'
+        # persons.loc[persons['age'] >= 65, 'person_type'] = 'R'  # Retired
+        # persons.loc[persons['employment_status'] == 'F', 'person_type'] = 'F'  # Full-time Worker
+        # persons.loc[persons['employment_status'] == 'P', 'person_type'] = 'P'  # Part-time Worker
+        # persons.loc[persons['age'] <= 18, 'person_type'] = 'S'  # Student
+        # persons.loc[(persons['age'] > 18) & (persons['student_status'].isin({'F', 'P'})), 'person_type'] = 'U'  # University/College
+        # persons['person_type'] = persons['person_type'].astype('category')
 
         self._logger.debug('Classifying `student_class`')
         persons['student_class'] = 'O'
-        persons.loc[persons['age'].between(6, 13), 'student_class'] = 'P'  # Primary, align with TTS
-        persons.loc[persons['age'].between(14, 17), 'student_class'] = 'S'  # Secondary
-        persons.loc[persons['person_type'] == 'U', 'student_class'] = 'U'  # University/College
+        mask1 = persons['student_status'] != 'O'
+        stu_class_groups = {'P': (5, 13), 'S': (14, 17), 'U': (18, 100)}
+        for stu_class, age_range in stu_class_groups.items():
+            mask2 = persons['age'].between(*age_range)
+            persons.loc[mask1 & mask2, 'student_class'] = stu_class
         persons['student_class'] = persons['student_class'].astype('category')
 
         self._logger.debug('Classifying `occ_emp`')  # combine occupation and employment status into one identifier
