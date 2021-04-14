@@ -38,7 +38,7 @@ def extract_tlfds(table: Union[pd.DataFrame, LinkedDataFrame], agg_col: str, *, 
 
 
 def extract_e2e_linkages(table: Union[pd.DataFrame, LinkedDataFrame], ensembles: pd.Series, *, agg_col: str = None,
-                         orig_col: str = 'o_zone', dest_col: str = 'd_zone'):
+                         orig_col: str = 'o_zone', dest_col: str = 'd_zone', weight_col: str = 'weight'):
     """A function to extract ensemble-to-ensemble linkages from model results.
 
     Args:
@@ -49,6 +49,7 @@ def extract_e2e_linkages(table: Union[pd.DataFrame, LinkedDataFrame], ensembles:
             category/group.
         orig_col (str, optional): Defaults to ``'o_zone'``. The name of the column to use as the origin.
         dest_col (str, optional): Defaults to ``'d_zone'``. The name of the column to use as the destination.
+        weight_col (str, optional): Defaults to ``'weight'``. The name of the column to use as the weights
     """
     df = table.copy()
     df['o_ensemble'] = ensembles.reindex(df[orig_col]).values
@@ -58,11 +59,11 @@ def extract_e2e_linkages(table: Union[pd.DataFrame, LinkedDataFrame], ensembles:
     if agg_col is not None:
         usecols.append(agg_col)
 
-    e2e_df = df.groupby(usecols).agg({'weight': 'sum'})
+    e2e_df = df.groupby(usecols).agg({weight_col: 'sum'})
     if agg_col is not None:
         e2e_df = e2e_df.unstack().fillna(0)
         e2e_df.columns = e2e_df.columns.droplevel(0)
     else:
-        e2e_df.rename(columns={'weight': 'trips'}, inplace=True)
+        e2e_df.rename(columns={weight_col: 'trips'}, inplace=True)
 
     return e2e_df
