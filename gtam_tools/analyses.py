@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Union
+from typing import Hashable, List, Union
 
 from balsa.routines import tlfd
 from cheval import LinkedDataFrame
@@ -37,16 +37,17 @@ def extract_tlfds(table: Union[pd.DataFrame, LinkedDataFrame], agg_col: str, *, 
     return model_tlfds
 
 
-def extract_e2e_linkages(table: Union[pd.DataFrame, LinkedDataFrame], ensembles: pd.Series, *, agg_col: str = None,
-                         orig_col: str = 'o_zone', dest_col: str = 'd_zone', weight_col: str = 'weight'):
+def extract_e2e_linkages(table: Union[pd.DataFrame, LinkedDataFrame], ensembles: pd.Series, *,
+                         agg_col: Union[str, List[str]] = None, orig_col: str = 'o_zone', dest_col: str = 'd_zone',
+                         weight_col: str = 'weight'):
     """A function to extract ensemble-to-ensemble linkages from model results.
 
     Args:
         table (Union[pd.DataFrame, LinkedDataFrame]): The table from the Microsim results. Ideally, this table
             would be from ``MicrosimData.trips`` or ``MicrosimData.persons``.
         ensembles (pd.Series): The TAZ to ensemble definition to use.
-        agg_col (str, optional): Defaults to ``None``. The name of the column in the trips table to aggregate by
-            category/group.
+        agg_col (Union[str, List[str]], optional): Defaults to ``None``. The name of the column(s) in the trips table to
+            aggregate by category/group.
         orig_col (str, optional): Defaults to ``'o_zone'``. The name of the column to use as the origin.
         dest_col (str, optional): Defaults to ``'d_zone'``. The name of the column to use as the destination.
         weight_col (str, optional): Defaults to ``'weight'``. The name of the column to use as the weights
@@ -57,7 +58,12 @@ def extract_e2e_linkages(table: Union[pd.DataFrame, LinkedDataFrame], ensembles:
 
     usecols = ['o_ensemble', 'd_ensemble']
     if agg_col is not None:
-        usecols.append(agg_col)
+        if isinstance(agg_col, Hashable):
+            usecols.append(agg_col)
+        elif isinstance(agg_col, list):
+            usecols += agg_col
+        else:
+            raise RuntimeError('Invalid input for `agg_col`')
 
     e2e_df = df.groupby(usecols).agg({weight_col: 'sum'})
     if agg_col is not None:
