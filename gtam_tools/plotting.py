@@ -4,7 +4,7 @@ from bokeh.layouts import Column, column, GridBox, gridplot
 from bokeh.palettes import Category20
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Tuple, Union, Hashable
+from typing import Any, Dict, List, Tuple, Union, Hashable
 import warnings
 
 
@@ -32,8 +32,8 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                            hover_col: Union[str, List[str]] = None, glyph_col: str = None, glyph_legend: bool = True,
                            glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px',
                            figure_title: str = None, plot_height: int = None, identity_line: bool = True,
-                           identity_colour: str = 'red', identity_width: int = 2, calc_pct_diff: bool = True
-                           ) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]:
+                           identity_colour: str = 'red', identity_width: int = 2, color_palette: Dict[int, Any] = None,
+                           calc_pct_diff: bool = True) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]:
     """Creates an interactive Bokeh-based scatter plot to compare data.
 
     Args:
@@ -75,6 +75,8 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         identity_colour (str, optional): Defaults to ``'red'``. The colour to use for the identity line. Accepts html
             colour names.
         identity_width (int, optional): Defaults to ``2``. The line width to use for the identity line.
+        color_palette (Dict[str, Any], optional): Defaults to ``None``. The Bokeh color palette to use. If ``None``,
+            the ``Category20`` palette will be used.
         calc_pct_diff (bool, optional): Defaults to ``True``. Include percent difference calculation in DataFrame output
 
     Returns:
@@ -122,10 +124,11 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     if category_labels is not None:
         df[data_label] = df[data_label].map(category_labels)
 
-    color_palette = None
     if glyph_col is not None:
-        assert len(df[glyph_col].unique()) <= 20, 'Number of colours in color palette exceeded (max 20)'
-        color_palette = Category20[max(len(df[glyph_col].unique()), 3)]
+        n_colors = max(len(df[glyph_col].unique()), 3)
+        if color_palette is None:
+            color_palette = Category20
+        color_palette = color_palette[n_colors]
 
     # Prepare figure formatting values
     source = ColumnDataSource(df)
