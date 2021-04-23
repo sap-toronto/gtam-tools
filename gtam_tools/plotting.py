@@ -32,8 +32,10 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                            hover_col: Union[str, List[str]] = None, glyph_col: str = None, glyph_legend: bool = True,
                            glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px',
                            figure_title: str = None, plot_height: int = None, identity_line: bool = True,
-                           identity_colour: str = 'red', identity_width: int = 2, color_palette: Dict[int, Any] = None,
-                           calc_pct_diff: bool = True) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]:
+                           identity_colour: str = 'red', identity_width: int = 2,
+                           color_palette: Dict[int, Any] = Category20, calc_pct_diff: bool = True,
+                           totals_in_titles: bool = True, filter_zero_rows: bool = True
+                           ) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]:
     """Creates an interactive Bokeh-based scatter plot to compare data.
 
     Args:
@@ -75,9 +77,11 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         identity_colour (str, optional): Defaults to ``'red'``. The colour to use for the identity line. Accepts html
             colour names.
         identity_width (int, optional): Defaults to ``2``. The line width to use for the identity line.
-        color_palette (Dict[str, Any], optional): Defaults to ``None``. The Bokeh color palette to use. If ``None``,
-            the ``Category20`` palette will be used.
+        color_palette (Dict[str, Any], optional): Defaults to ``Category20``. The Bokeh color palette to use.
         calc_pct_diff (bool, optional): Defaults to ``True``. Include percent difference calculation in DataFrame output
+        totals_in_titles (bool, optional): Defaults to ``True``. Include the control and result totals in plot title.
+        filter_zero_rows (bool, optional): Defaults to ``True``. Filter out comparisons where controls and results are
+            both zeros.
 
     Returns:
         Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]
@@ -119,19 +123,28 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
     df[result_name] = result_df.stack()
     df[result_name].fillna(0, inplace=True)
+
+    if filter_zero_rows:
+        df = df[df.sum(axis=1) > 0].copy()
+
     df.reset_index(inplace=True)
 
     if category_labels is not None:
         df[data_label] = df[data_label].map(category_labels)
 
+    fig_df = df.copy()
+    if totals_in_titles:
+        label_totals = fig_df.groupby(data_label)[[controls_name, result_name]].sum()
+        label_totals['label'] = label_totals.index + f' ({controls_name}=' + label_totals[controls_name].round(
+            3).astype(str) + f', {result_name}=' + label_totals[result_name].round(3).astype(str) + ')'
+        fig_df[data_label] = fig_df[data_label].map(label_totals['label'])
+
     if glyph_col is not None:
-        n_colors = max(len(df[glyph_col].unique()), 3)
-        if color_palette is None:
-            color_palette = Category20
+        n_colors = max(len(fig_df[glyph_col].unique()), 3)
         color_palette = color_palette[n_colors]
 
     # Prepare figure formatting values
-    source = ColumnDataSource(df)
+    source = ColumnDataSource(fig_df)
     tooltips = [(c, '@{%s}' % c) for c in hover_col]
     tooltips += [(controls_name, '@{%s}{0,0.0}' % controls_name), (result_name, '@{%s}{0,0.0}' % result_name)]
     figure_params = _prep_figure_params(controls_name, result_name, tooltips, plot_height)
@@ -155,7 +168,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         if glyph_col is None:  # Single glyphs
             p.circle(**glyph_params)
         else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-            for i, gc in enumerate(sorted(df[glyph_col].unique())):
+            for i, gc in enumerate(sorted(fig_df[glyph_col].unique())):
                 source_view = CDSView(source=source, filters=[GroupFilter(column_name=glyph_col, group=gc)])
                 p.circle(view=source_view, legend_label=gc, color=color_palette[i], **glyph_params)
             apply_legend_settings(p)
@@ -164,7 +177,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         fig = p
     else:  # Facet plot
         fig = []
-        facet_column_items = df[facet_col].unique().tolist()
+        facet_column_items = fig_df[facet_col].unique().tolist()
         facet_column_items = sorted(facet_column_items) if facet_sort_order else facet_column_items
         linked_axes = {}
         for i, fc in enumerate(facet_column_items):
@@ -174,7 +187,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                 source_view = CDSView(source=source, filters=filters)
                 p.circle(view=source_view, **glyph_params)
             else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-                for j, gc in enumerate(sorted(df[glyph_col].unique())):
+                for j, gc in enumerate(sorted(fig_df[glyph_col].unique())):
                     filters_ = filters + [GroupFilter(column_name=glyph_col, group=gc)]
                     source_view = CDSView(source=source, filters=filters_)
                     p.circle(view=source_view, legend_label=gc, color=color_palette[j], **glyph_params)
