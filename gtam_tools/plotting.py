@@ -283,13 +283,12 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     df = controls_df.copy()
     df.columns.name = data_label
     df = df.stack().to_frame(name=controls_name)
-    if ref_label is not None:
-        df.index.names = [*ref_label, data_label]
+    df.index.names = [*ref_label, data_label]
 
     df[result_name] = result_df.stack()
     df = df.fillna(0).round(0).astype(np.int64)
     df.columns.name = 'source'
-    df = df.stack().to_frame(name='trips').reset_index()
+    df = df.stack().to_frame(name='total').reset_index()
 
     if category_labels is not None:
         df[data_label] = df[data_label].map(category_labels)
@@ -302,9 +301,10 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
             fig_df['label_col'] += fig_df[col].astype(str)
         else:
             fig_df['label_col'] += ' - ' + fig_df[col].astype(str)
-    fig_df = fig_df.pivot_table(values='trips', index=['label_col', 'source'], columns=data_label, aggfunc='sum',
+    fig_df = fig_df.pivot_table(values='total', index=['label_col', 'source'], columns=data_label, aggfunc='sum',
                                 fill_value=0)
     fig_df.sort_index(ascending=False, inplace=True)
+    fig_df.columns = fig_df.columns.astype(str)
 
     if normalize:
         fig_df = (fig_df / fig_df.sum(axis=1).to_numpy()[:, np.newaxis]).round(3)
