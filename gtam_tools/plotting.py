@@ -7,6 +7,8 @@ import pandas as pd
 from typing import Any, Dict, List, Tuple, Union, Hashable
 import warnings
 
+from .utils import sort_nicely
+
 
 def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable, Hashable]], plot_height: int = None):
     figure_params = {
@@ -135,8 +137,8 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     fig_df = df.copy()
     if totals_in_titles:
         label_totals = fig_df.groupby(data_label)[[controls_name, result_name]].sum()
-        label_totals['label'] = label_totals.index + f' ({controls_name}=' + label_totals[controls_name].round(
-            3).astype(str) + f', {result_name}=' + label_totals[result_name].round(3).astype(str) + ')'
+        label_totals['label'] = label_totals.index + f' ({controls_name}=' + label_totals[controls_name].map(
+            '{:,.0f}'.format) + f', {result_name}=' + label_totals[result_name].map('{:,.0f}'.format) + ')'
         fig_df[data_label] = fig_df[data_label].map(label_totals['label'])
 
     if glyph_col is not None:
@@ -294,20 +296,24 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
         df[data_label] = df[data_label].map(category_labels)
 
     # Prepare figure-specific data
-    fig_df = df.copy()
-    fig_df['label_col'] = ''
-    for i, col in enumerate(label_col):
-        if i == 0:
-            fig_df['label_col'] += fig_df[col].astype(str)
-        else:
-            fig_df['label_col'] += ' - ' + fig_df[col].astype(str)
-    fig_df = fig_df.pivot_table(values='total', index=['label_col', 'source'], columns=data_label, aggfunc='sum',
-                                fill_value=0)
-    fig_df.sort_index(ascending=False, inplace=True)
-    fig_df.columns = fig_df.columns.astype(str)
+    label_col_index = []
+    for label in label_col:
+        label_col_index.append(sort_nicely(df[label].unique().tolist()))  # perform a human sort
+    label_col_index.append([controls_name, result_name])
+    label_col_index = pd.MultiIndex.from_product(label_col_index, names=[*label_col, 'source'])
 
+    fig_df = df.pivot_table(values='total', index=[*label_col, 'source'], columns=data_label, aggfunc='sum',
+                            fill_value=0)
+    mask = label_col_index.isin(fig_df.index)
+    fig_df = fig_df.reindex(label_col_index[mask], fill_value=0)[::-1].copy()  # reindex and reverse
+    fig_df.columns = fig_df.columns.astype(str)
     if normalize:
         fig_df = (fig_df / fig_df.sum(axis=1).to_numpy()[:, np.newaxis]).round(3)
+
+    fig_df.reset_index(inplace=True)
+    fig_df['label_col'] = [' - '.join([str(v) for v in l]) for l in fig_df[label_col].to_numpy().tolist()]
+    fig_df.drop(label_col, axis=1, inplace=True)
+    fig_df.set_index(['label_col', 'source'], inplace=True)
 
     # Plot figure
     x_range = (0, 1) if normalize else (0, int(fig_df.sum(axis=1).max()))
@@ -368,8 +374,9 @@ def _simplify_tlfd_index(df: Union[pd.DataFrame, pd.Series], low: float = -2.0,
 
 
 def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
-                    category_labels: Dict = None, bin_start: int = 0, bin_end: int = 200, bin_step: int = 2,
-                    facet_col_wrap: int = 2, facet_sort_order: bool = True, facet_sync_axes: str = 'both',
+                    category_labels: Dict = None, controls_name: str = 'controls', result_name: str = 'model',
+                    bin_start: int = 0, bin_end: int = 200, bin_step: int = 2, facet_col_wrap: int = 2,
+                    facet_sort_order: bool = True, facet_sync_axes: str = 'both',
                     legend_label_text_font_size: str = '11px', figure_title: str = None, plot_height: int = None,
                     controls_line_colour: str = 'red', controls_line_width: int = 2
                     ) -> Tuple[pd.DataFrame, Union[Column, GridBox]]:
@@ -383,6 +390,8 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
         data_label (str): The name to use for the data represented by the category/groups columns.
         category_labels (Dict, optional): Defaults to ``None``. Category labels used to rename the `controls_df` and
             `result_df` columns.
+        controls_name (str, optional): Defaults to ``'controls'``. The name for the controls.
+        result_name (str, optional): Defaults to ``'model'``. The name for the results.
         bin_start (int): Defaults is ``0``. The minimum bin value.
         bin_end (int): Defaults to ``200``. The maximum bin value.
         bin_step (int): Default is ``2``. The size of each bin.
@@ -425,7 +434,7 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
         df[data_label] = df[data_label].map(category_labels)
 
     # Prepare figure formatting values
-    tooltips = [('bin_start', '@bin_start'), ('Model', '@model{0.3f}'), ('Target', '@target{0.3f}')]
+    tooltips = [('bin_start', '@bin_start'), (result_name, '@model{0.3f}'), (controls_name, '@target{0.3f}')]
     figure_params = _prep_figure_params('Bin', 'Proportion', tooltips, plot_height)
 
     # Plot figure
@@ -438,8 +447,9 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
         subset = df[df[data_label] == fc]  # We do it this way because CDSView doesn't support connected lines
         source = ColumnDataSource(subset)
         p.line(source=source, x='bin_start', y='target', line_color=controls_line_colour,
-               line_width=controls_line_width, legend_label='Target')
-        p.vbar(source=source, x='bin_start', top='model', bottom=0, width=1.25, legend_label='Model', fill_alpha=0.2)
+               line_width=controls_line_width, legend_label=controls_name)
+        p.vbar(source=source, x='bin_start', top='model', bottom=0, width=1.25, legend_label=result_name,
+               fill_alpha=0.2)
         p.y_range.start = 0
         p.legend.label_text_font_size = legend_label_text_font_size
 

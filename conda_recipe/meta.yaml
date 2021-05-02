@@ -26,6 +26,7 @@ requirements:
 about:
   home: https://github.com/sap-toronto/gtam-tools
   license: MIT
+  license_file: LICENSE
   summary: A Python package for handling GTAModel data
 
 extra:
