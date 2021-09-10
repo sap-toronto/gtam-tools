@@ -314,7 +314,7 @@ class MicrosimData(object):
         zones_df = zones_df[zones_df[taz_col] <= ZoneNums.MAX_INTERNAL].copy()  # Keep internal zones only
 
         zones_df.set_index(taz_col, inplace=True)
-        zones_df = zones_df.to_crs({'init': to_crs})  # reproject
+        zones_df = zones_df.to_crs(to_crs)  # reproject
         zones_df['x'] = zones_df.geometry.x
         zones_df['y'] = zones_df.geometry.y
         zones_df.sort_index(inplace=True)

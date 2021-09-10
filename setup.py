@@ -20,7 +20,7 @@ setup(
     python_requires='>=3.6',
     install_requires=[
         'bokeh',
-        'geopandas',
+        'geopandas>=0.9.0',
         'numpy',
         'pandas',
         'wsp-balsa',
