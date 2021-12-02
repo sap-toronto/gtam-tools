@@ -1,3 +1,4 @@
+from enum import Enum
 import geopandas as gpd
 from itertools import product
 import numpy as np
@@ -28,6 +29,7 @@ class MicrosimData(object):
     _trip_passengers: LinkedDataFrame
     _zone_coordinates: gpd.GeoDataFrame
     _impedances: pd.DataFrame
+    _max_internal_zone: int
 
     _logger = get_model_logger('gtam_tools.MicrosimData')
 
@@ -125,7 +127,8 @@ class MicrosimData(object):
     @staticmethod
     def load_folder(run_folder: Union[str, Path], *, link_tables: bool = True, derive_additional_variables: bool = True,
                     time_format=TimeFormat.MINUTE_DELTA, zones_file: Union[str, Path] = None, taz_col: str = None,
-                    zones_crs: str = None, to_crs: str = 'EPSG:26917', coord_unit: float = 0.001) -> 'MicrosimData':
+                    zones_crs: str = None, to_crs: str = 'EPSG:26917', coord_unit: float = 0.001,
+                    max_internal_zone: Union[int, Enum] = ZoneNums.MAX_INTERNAL) -> 'MicrosimData':
         """Load GTAModel Microsim Result tables from a specified folder.
 
         Args:
@@ -146,6 +149,8 @@ class MicrosimData(object):
             to_crs (str, optional): Defaults to ``'EPSG:26917'``. A coordinate reference system to reproject zone
                 coordinates to. Value can be anything accepted by ``pyproj.CRS.from_user_input()``.
             coord_unit (float, optional): Defaults to ``0.001``. A value to adjust distance values with.
+            max_internal_zone (Union[int, Enum], optional): Defaults to ``ZoneNums.MAX_INTERNAL``. The highest internal
+                zone number allowed. Argument accepts an integer or an Enum attribute (e.g. ``ZoneNums.MAX_INTERNAL``).
 
         Returns:
             MicrosimData
@@ -190,6 +195,7 @@ class MicrosimData(object):
         MicrosimData._logger.tip(f'Loading Microsim Results from `{run_folder.as_posix()}`')
 
         data = MicrosimData()
+        data._set_max_internal_zone(max_internal_zone)
         data._load_tables(households_fp, persons_fp, trips_fp, trip_modes_fp, trip_stations_fp, fpass_fp=fpass_fp,
                           zones_fp=zones_file, taz_col=taz_col, zones_crs=zones_crs, to_crs=to_crs)
 
@@ -229,8 +235,8 @@ class MicrosimData(object):
         assert skim_fp.exists(), f'Skim file not found at `{skim_fp.as_posix()}`'
 
         skim_data = read_mdf(skim_fp, raw=False, tall=True)
-        mask1 = skim_data.index.get_level_values(0) <= ZoneNums.MAX_INTERNAL
-        mask2 = skim_data.index.get_level_values(1) <= ZoneNums.MAX_INTERNAL
+        mask1 = skim_data.index.get_level_values(0) <= self._max_internal_zone
+        mask2 = skim_data.index.get_level_values(1) <= self._max_internal_zone
         skim_data = skim_data[mask1 & mask2].reindex(self.impedances.index)
 
         skim_data = skim_data * scale_unit
@@ -294,8 +300,10 @@ class MicrosimData(object):
             self.zone_coordinates[f'{name}_label'] = correspondence[ensemble_names_col]
         self._logger.report('Added ensembles to zone coordinates')
 
-    @staticmethod
-    def _load_zones_file(fp: Path, taz_col: str, zones_crs: str, to_crs: str) -> gpd.GeoDataFrame:
+    def _set_max_internal_zone(self, max_internal_zone: int):
+        self._max_internal_zone = int(max_internal_zone)
+
+    def _load_zones_file(self, fp: Path, taz_col: str, zones_crs: str, to_crs: str) -> gpd.GeoDataFrame:
         if fp.suffix == '.csv':
             zones_df = pd.read_csv(fp)
             zones_df.columns = zones_df.columns.str.lower()
@@ -311,7 +319,7 @@ class MicrosimData(object):
         taz_col = taz_col.lower()
         zones_df[taz_col] = zones_df[taz_col].astype(int)
 
-        zones_df = zones_df[zones_df[taz_col] <= ZoneNums.MAX_INTERNAL].copy()  # Keep internal zones only
+        zones_df = zones_df[zones_df[taz_col] <= self._max_internal_zone].copy()  # Keep internal zones only
 
         zones_df.set_index(taz_col, inplace=True)
         zones_df = zones_df.to_crs(to_crs)  # reproject
