@@ -13,6 +13,8 @@ from cheval import LinkedDataFrame
 
 from .enums import TimeFormat, ZoneNums
 
+SHPFILE_EXT = {'.shp', '.geojson'}
+
 
 def _load_model_activity_pairs() -> pd.Series:
     stream = pkg_resources.resource_stream(__name__, 'resource_data/activity_pairs_model.csv')
@@ -140,8 +142,9 @@ class MicrosimData(object):
             time_format (TimeFormat, optional): Defaults to ``TimeFormat.MINUTE_DELTA``. Specify the time format in the
                 Microsim results. Used for parsing times in the trip modes file.
             zones_file (Union[str, Path], optional): Defaults to ``None``. The path to a file containing zone
-                coordinates. Accepts CSVs with x, y coordinate columns, or a zones shapefile. If providing a shapefile,
-                it will calculate the zone coordinate based on the centroid of each zone polygon.
+                coordinates. Accepts CSVs with x, y coordinate columns, or a zones shapefile (`*.shp` or `*.geojson`).
+                If providing a shapefile, it will calculate the zone coordinate based on the centroid of each zone
+                polygon.
             taz_col (str, optional): Defaults to ``None``. Name of the TAZ column in ``zones_file``.
             zones_crs (Union[str, CRS], optional): Defaults to ``None``. The coordinate reference system for
                 ``zones_file``. Only applicable if ``zones_file`` is a CSV file. Value can be anything accepted by
@@ -257,7 +260,7 @@ class MicrosimData(object):
         Args:
             name (str): The reference name for the ensemble definitions.
             definition_fp (Union[str, Path]): The file path to the zone ensemble correspondence file. Can be a CSV
-                file or shapefile.
+                file or shapefile (`*.shp` or `*.geojson`).
             taz_col (str): Name of the TAZ column in ``definition_fp``.
             ensemble_col (str, optional): Defaults to ``'ensemble'``. Name of the ensembles column in ``definition_fp``.
             missing_val (int, optional): Defaults to ``9999``. A value to use for all TAZs without an
@@ -277,7 +280,7 @@ class MicrosimData(object):
 
         if definition_fp.suffix == '.csv':
             correspondence = pd.read_csv(definition_fp)
-        elif definition_fp.suffix == '.shp':
+        elif definition_fp.suffix in SHPFILE_EXT:
             correspondence = gpd.read_file(definition_fp)
         else:
             raise RuntimeError(f'An unsupported zones file type was provided ({definition_fp.suffix})')
@@ -309,7 +312,7 @@ class MicrosimData(object):
             zones_df.columns = zones_df.columns.str.lower()
             zones_df = gpd.GeoDataFrame(zones_df, geometry=gpd.points_from_xy(zones_df['x'], zones_df['y']),
                                         crs=zones_crs)
-        elif fp.suffix == '.shp':
+        elif fp.suffix in SHPFILE_EXT:
             zones_df = gpd.read_file(fp.as_posix())
             zones_df.columns = zones_df.columns.str.lower()
             zones_df['geometry'] = zones_df.centroid
