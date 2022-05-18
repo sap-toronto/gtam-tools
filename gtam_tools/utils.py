@@ -1,8 +1,8 @@
-import geopandas as gpd
-from shapely.wkb import loads, dumps
 from warnings import warn
 
+import geopandas as gpd
 from balsa.routines import sort_nicely as human_sort
+from shapely.wkb import dumps, loads
 
 
 def format_gdf(gdf: gpd.GeoDataFrame, *, index_col: str = None) -> gpd.GeoDataFrame:
@@ -26,5 +26,6 @@ def format_gdf(gdf: gpd.GeoDataFrame, *, index_col: str = None) -> gpd.GeoDataFr
 
 def sort_nicely(l):
     """Sort the given list in the way that humans expect."""
-    warn('This method is deprecated and will be removed in future releases. Please use a newer version of this method from `balsa.routines.general` instead.', DeprecationWarning, stacklevel=2)
+    warn('This method is deprecated and will be removed in future releases. Please use a newer version of this method '
+         'from `balsa.routines.general` instead.', DeprecationWarning, stacklevel=2)
     return human_sort(l)

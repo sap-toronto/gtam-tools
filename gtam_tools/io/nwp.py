@@ -1,11 +1,12 @@
-import pandas as pd
 from pathlib import Path
 from typing import List, Tuple, Union
 from warnings import warn
 
 import balsa.routines.io.nwp as nwp_tools
+import pandas as pd
 
-deprecated_msg = 'This method is deprecated and will be removed in future releases. Please use a newer version of this method from `balsa.routines.io.nwp` instead.'
+deprecated_msg = 'This method is deprecated and will be removed in future releases. Please use a newer version of ' \
+                 'this method from `balsa.routines.io.nwp` instead. '
 
 
 def read_nwp_base_network(nwp_fp: Union[str, Path]) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -121,6 +122,7 @@ def read_nwp_transit_station_results(nwp_fp: Union[str, Path], station_line_node
 
     Args:
         nwp_fp (Union[str, Path]): File path to the network package.
+        station_line_nodes (List[int]): List of station line nodes to summarize for.
 
     Returns:
         pd.DataFrame

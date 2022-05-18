@@ -1,6 +1,6 @@
-import pandas as pd
 from typing import Hashable, List, Union
 
+import pandas as pd
 from balsa.routines import tlfd
 from cheval import LinkedDataFrame
 

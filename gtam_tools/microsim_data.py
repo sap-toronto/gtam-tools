@@ -1,14 +1,14 @@
 from enum import Enum
-import geopandas as gpd
 from itertools import product
-import numpy as np
-import pandas as pd
 from pathlib import Path
-import pkg_resources
 from typing import Union
 
-from balsa.routines import distance_matrix, read_mdf
+import geopandas as gpd
+import numpy as np
+import pandas as pd
+import pkg_resources
 from balsa.logging import get_model_logger
+from balsa.routines import distance_matrix, read_mdf
 from cheval import LinkedDataFrame
 
 from .enums import TimeFormat, ZoneNums
@@ -18,7 +18,7 @@ SHPFILE_EXT = {'.shp', '.geojson'}
 
 def _load_model_activity_pairs() -> pd.Series:
     stream = pkg_resources.resource_stream(__name__, 'resource_data/activity_pairs_model.csv')
-    return pd.read_csv(stream, index_col=[0, 1], squeeze=True)
+    return pd.read_csv(stream, index_col=[0, 1]).squeeze('columns')
 
 
 class MicrosimData(object):

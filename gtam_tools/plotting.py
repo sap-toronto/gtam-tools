@@ -1,11 +1,13 @@
-from bokeh.plotting import Figure, figure
-from bokeh.models import CDSView, ColumnDataSource, Div, FactorRange, GroupFilter, NumeralTickFormatter, Slope
-from bokeh.layouts import Column, column, GridBox, gridplot
-from bokeh.palettes import Category20, Set3
+import warnings
+from typing import Any, Dict, Hashable, List, Tuple, Union
+
 import numpy as np
 import pandas as pd
-from typing import Any, Dict, List, Tuple, Union, Hashable
-import warnings
+from bokeh.layouts import Column, GridBox, column, gridplot
+from bokeh.models import (CDSView, ColumnDataSource, Div, FactorRange,
+                          GroupFilter, NumeralTickFormatter, Slope)
+from bokeh.palettes import Category20, Set3
+from bokeh.plotting import Figure, figure
 
 from .utils import sort_nicely
 

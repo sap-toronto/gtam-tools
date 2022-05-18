@@ -1,7 +1,8 @@
-import pandas as pd
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Union
+
+import pandas as pd
 
 
 def read_tts_cross_tabulation_file(fp: Union[str, Path]) -> pd.DataFrame:
