@@ -1,4 +1,4 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 import versioneer
 
@@ -17,7 +17,7 @@ setup(
     packages=find_packages(),
     package_data={'': ['resource_data/*.csv']},
     include_package_data=True,
-    python_requires='>=3.6',
+    python_requires='>=3.7',
     install_requires=[
         'bokeh',
         'geopandas>=0.9.0',
