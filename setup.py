@@ -23,6 +23,7 @@ setup(
         'geopandas>=0.9.0',
         'numpy',
         'pandas',
+        'pyproj',
         'wsp-balsa>=1.2.2',
         'wsp-cheval'
     ]
