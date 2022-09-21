@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from enum import Enum
 from itertools import product
+from os import PathLike
 from pathlib import Path
 from typing import Union
 
@@ -10,10 +13,9 @@ import pkg_resources
 from balsa.logging import get_model_logger
 from balsa.routines import distance_matrix, read_mdf
 from cheval import LinkedDataFrame
+from pyproj import CRS
 
 from .enums import TimeFormat, ZoneNums
-
-SHPFILE_EXT = {'.shp', '.geojson'}
 
 
 def _load_model_activity_pairs() -> pd.Series:
@@ -23,6 +25,7 @@ def _load_model_activity_pairs() -> pd.Series:
 
 class MicrosimData(object):
 
+    _run_folder: Path
     _households: LinkedDataFrame
     _persons: LinkedDataFrame
     _trips: LinkedDataFrame
@@ -67,32 +70,36 @@ class MicrosimData(object):
     }
 
     @property
-    def households_loaded(self):
+    def households_loaded(self) -> bool:
         return self._households is not None
 
     @property
-    def persons_loaded(self):
+    def persons_loaded(self) -> bool:
         return self._persons is not None
 
     @property
-    def trips_loaded(self):
+    def trips_loaded(self) -> bool:
         return self._trips is not None
 
     @property
-    def trip_modes_loaded(self):
+    def trip_modes_loaded(self) -> bool:
         return self._trip_modes is not None
 
     @property
-    def trip_stations_loaded(self):
+    def trip_stations_loaded(self) -> bool:
         return self._trip_stations is not None
 
     @property
-    def trips_passengers_loaded(self):
+    def trips_passengers_loaded(self) -> bool:
         return self._trip_passengers is not None
 
     @property
-    def zone_coordinates_loaded(self):
+    def zone_coordinates_loaded(self) -> bool:
         return self._zone_coordinates is not None
+
+    @property
+    def run_folder(self) -> Path:
+        return self._run_folder
 
     @property
     def households(self) -> LinkedDataFrame:
@@ -127,25 +134,26 @@ class MicrosimData(object):
         return self._impedances
 
     @staticmethod
-    def load_folder(run_folder: Union[str, Path], *, link_tables: bool = True, derive_additional_variables: bool = True,
-                    time_format=TimeFormat.MINUTE_DELTA, zones_file: Union[str, Path] = None, taz_col: str = None,
-                    zones_crs: str = None, to_crs: str = 'EPSG:26917', coord_unit: float = 0.001,
-                    max_internal_zone: Union[int, Enum] = ZoneNums.MAX_INTERNAL) -> 'MicrosimData':
+    def load_folder(run_folder: Union[str, PathLike], *, link_tables: bool = True,
+                    derive_additional_variables: bool = True, time_format: TimeFormat = TimeFormat.MINUTE_DELTA,
+                    zones_file: Union[str, PathLike] = None, taz_col: str = 'gta06', zones_crs: Union[str, CRS] = None,
+                    to_crs: str = 'EPSG:26917', coord_unit: float = 0.001,
+                    max_internal_zone: Union[int, Enum] = ZoneNums.MAX_INTERNAL) -> MicrosimData:
         """Load GTAModel Microsim Result tables from a specified folder.
 
         Args:
-            run_folder (Union[str, Path]): The path to the GTAModel Microsim Results folder
+            run_folder (Union[str, PathLike]): The path to the GTAModel Microsim Results folder
             link_tables (bool, optional): Defaults to ``True``. A flag to link result tables together. Please note that
                 this option will take several minutes to complete.
             derive_additional_variables (bool, optional): Defaults to ``True``. A flag to derive additional variables
                 based on the Microsim data. Requires ``link_tables=True``.
             time_format (TimeFormat, optional): Defaults to ``TimeFormat.MINUTE_DELTA``. Specify the time format in the
                 Microsim results. Used for parsing times in the trip modes file.
-            zones_file (Union[str, Path], optional): Defaults to ``None``. The path to a file containing zone
+            zones_file (Union[str, PathLike], optional): Defaults to ``None``. The path to a file containing zone
                 coordinates. Accepts CSVs with x, y coordinate columns, or a zones shapefile (`*.shp` or `*.geojson`).
                 If providing a shapefile, it will calculate the zone coordinate based on the centroid of each zone
                 polygon.
-            taz_col (str, optional): Defaults to ``None``. Name of the TAZ column in ``zones_file``.
+            taz_col (str, optional): Defaults to ``'gta06'``. Name of the TAZ column in ``zones_file``.
             zones_crs (Union[str, CRS], optional): Defaults to ``None``. The coordinate reference system for
                 ``zones_file``. Only applicable if ``zones_file`` is a CSV file. Value can be anything accepted by
                 ``pyproj.CRS.from_user_input()``.
@@ -159,14 +167,18 @@ class MicrosimData(object):
             MicrosimData
         """
         run_folder = Path(run_folder)
-        assert run_folder.exists(), f'Run folder `{run_folder.as_posix()}` not found'
-        assert run_folder.is_dir()
+        if not run_folder.exists():
+            raise FileNotFoundError(f'Run folder `{run_folder.as_posix()}` not found')
+        if not run_folder.is_dir():
+            raise RuntimeError(f'`{run_folder.as_posix()}` is not a directory')
 
         if zones_file is not None:
-            assert taz_col is not None, 'Please specify `taz_col`'
+            if taz_col is None:
+                raise RuntimeError('Please specify `taz_col`')
 
         if derive_additional_variables:
-            assert link_tables, '`link_tables` must be enabled to derive additional variables'
+            if not link_tables:
+                raise RuntimeError('`link_tables` must be enabled to derive additional variables')
 
         def _prep_file(name: str) -> Path:
             uncompressed = run_folder / (name + '.csv')
@@ -198,9 +210,12 @@ class MicrosimData(object):
         MicrosimData._logger.tip(f'Loading Microsim Results from `{run_folder.as_posix()}`')
 
         data = MicrosimData()
+        data._set_run_folder(run_folder)
         data._set_max_internal_zone(max_internal_zone)
-        data._load_tables(households_fp, persons_fp, trips_fp, trip_modes_fp, trip_stations_fp, fpass_fp=fpass_fp,
-                          zones_fp=zones_file, taz_col=taz_col, zones_crs=zones_crs, to_crs=to_crs)
+        data._load_tables(
+            households_fp, persons_fp, trips_fp, trip_modes_fp, trip_stations_fp, fpass_fp=fpass_fp,
+            zones_fp=zones_file, taz_col=taz_col, zones_crs=zones_crs, to_crs=to_crs
+        )
 
         if data.zone_coordinates_loaded:
             data._calc_base_impedences(coord_unit)
@@ -221,13 +236,13 @@ class MicrosimData(object):
 
         return data
 
-    def add_impedance_skim(self, name: str, skim_fp: Union[str, Path], *, scale_unit: float = 1.0,
+    def add_impedance_skim(self, name: str, skim_fp: Union[str, PathLike], *, scale_unit: float = 1.0,
                            ignore_missing_ods: bool = False):
         """Add a skim from a matrix binary file as impedance values to the impedances table.
 
         Args:
             name (str): The reference name for the impedance skim.
-            skim_fp (Union[str, Path]): The file path to the skim matrix binary file.
+            skim_fp (Union[str, PathLike]): The file path to the skim matrix binary file.
             scale_unit (float, optional): Defaults to ``1.0``. A scalar value to adjust skim values.
             ignore_missing_ods (bool, optional): Defaults to ``False``. A flag to ignore missing ODs. If ``True``, skim
                 values for missing ODs will be set to zero.
@@ -252,21 +267,22 @@ class MicrosimData(object):
         self.impedances[name] = skim_data
         self._logger.report(f'Added `{name}` to impedances')
 
-    def add_zone_ensembles(self, name: str, definition_fp: Union[str, Path], taz_col: str, *,
+    def add_zone_ensembles(self, name: str, definition_fp: Union[str, PathLike], taz_col: str, *,
                            ensemble_col: str = 'ensemble', missing_val: int = 9999,
-                           ensemble_names_fp: Union[str, Path] = None, ensemble_names_col: str = 'name'):
+                           ensemble_names_fp: Union[str, PathLike] = None, ensemble_names_col: str = 'name'):
         """Add zone ensemble definitions to the zone coordinates table.
 
         Args:
             name (str): The reference name for the ensemble definitions.
-            definition_fp (Union[str, Path]): The file path to the zone ensemble correspondence file. Can be a CSV
+            definition_fp (Union[str, PathLike]): The file path to the zone ensemble correspondence file. Can be a CSV
                 file or shapefile (`*.shp` or `*.geojson`).
             taz_col (str): Name of the TAZ column in ``definition_fp``.
             ensemble_col (str, optional): Defaults to ``'ensemble'``. Name of the ensembles column in ``definition_fp``.
             missing_val (int, optional): Defaults to ``9999``. A value to use for all TAZs without an
                 assigned ensemble.
-            ensemble_names_fp (Union[str, Path], optional): Defaults to ``None``. The file path to a CSV file containing
-                zone ensemble names. The ensemble id column in this file must be the same as ``ensemble_col``.
+            ensemble_names_fp (Union[str, PathLike], optional): Defaults to ``None``. The file path to a CSV file
+                containing zone ensemble names. The ensemble id column in this file must be the same as
+                ``ensemble_col``.
             ensemble_names_col (str, optional): Defaults to ``'name'``. The name of the column containing the ensemble
                 names. Will only be used if ``ensemble_names_fp`` is specified.
         """
@@ -280,10 +296,8 @@ class MicrosimData(object):
 
         if definition_fp.suffix == '.csv':
             correspondence = pd.read_csv(definition_fp)
-        elif definition_fp.suffix in SHPFILE_EXT:
-            correspondence = gpd.read_file(definition_fp)
         else:
-            raise RuntimeError(f'An unsupported zones file type was provided ({definition_fp.suffix})')
+            correspondence = gpd.read_file(definition_fp)  # Let GeoPandas handle everything else (incl. errors)...
 
         correspondence.columns = correspondence.columns.str.lower()
         correspondence.set_index(taz_col, inplace=True)
@@ -303,6 +317,9 @@ class MicrosimData(object):
             self.zone_coordinates[f'{name}_label'] = correspondence[ensemble_names_col]
         self._logger.report('Added ensembles to zone coordinates')
 
+    def _set_run_folder(self, run_folder: Path):
+        self._run_folder = run_folder
+
     def _set_max_internal_zone(self, max_internal_zone: int):
         self._max_internal_zone = int(max_internal_zone)
 
@@ -312,12 +329,10 @@ class MicrosimData(object):
             zones_df.columns = zones_df.columns.str.lower()
             zones_df = gpd.GeoDataFrame(zones_df, geometry=gpd.points_from_xy(zones_df['x'], zones_df['y']),
                                         crs=zones_crs)
-        elif fp.suffix in SHPFILE_EXT:
+        else:
             zones_df = gpd.read_file(fp.as_posix())
             zones_df.columns = zones_df.columns.str.lower()
             zones_df['geometry'] = zones_df.centroid
-        else:
-            raise RuntimeError(f'An unsupported zones file type was provided ({fp.suffix})')
 
         taz_col = taz_col.lower()
         zones_df[taz_col] = zones_df[taz_col].astype(int)

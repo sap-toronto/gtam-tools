@@ -3,13 +3,13 @@ from typing import Any, Dict, Hashable, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+from balsa.routines import sort_nicely
 from bokeh.layouts import Column, GridBox, column, gridplot
 from bokeh.models import (CDSView, ColumnDataSource, Div, FactorRange,
-                          GroupFilter, NumeralTickFormatter, Slope)
+                          GroupFilter, NumeralTickFormatter, Panel, Slope,
+                          Tabs)
 from bokeh.palettes import Category20, Set3
 from bokeh.plotting import Figure, figure
-
-from .utils import sort_nicely
 
 
 def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable, Hashable]], plot_height: int = None):
@@ -32,14 +32,14 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                            ref_label: Union[str, List[str]] = None, category_labels: Dict = None,
                            controls_name: str = 'controls', result_name: str = 'model', size: float = 7.5,
                            fill_alpha: float = 0.2, facet_col: str = None, facet_col_wrap: int = 2,
-                           facet_sort_order: bool = True, facet_sync_axes: str = 'both',
+                           facet_sort_order: bool = True, facet_sync_axes: str = 'both', facet_max_subplot: int = 9,
                            hover_col: Union[str, List[str]] = None, glyph_col: str = None, glyph_legend: bool = True,
                            glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px',
                            figure_title: str = None, plot_height: int = None, identity_line: bool = True,
                            identity_colour: str = 'red', identity_width: int = 2,
                            color_palette: Dict[int, Any] = Category20, calc_pct_diff: bool = True,
                            totals_in_titles: bool = True, filter_zero_rows: bool = True
-                           ) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]:
+                           ) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox, Tabs]]:
     """Creates an interactive Bokeh-based scatter plot to compare data.
 
     Args:
@@ -64,6 +64,8 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
             sorted by unique ``facet_col`` values.
         facet_sync_axes (str, optional): Defaults to ``'both'``. Option to sync/link facet axes. Accepts one of
             ``['both', 'x', 'y']``. Set to None to disable linked facet plot axes.
+        facet_max_subplot (int, optional): Defaults to ``9``. The maximum number of facet subplots per tab. If the
+            number of subplots exceed this value, a tabbed interface will be used.
         hover_col (Union[str, List[str]], optional): Defaults to ``None``. The column names to display in the plot
             tooltips.
         glyph_col (str, optional): Defaults to ``None``. The name of the column to use for glyph coloring. A standard
@@ -88,7 +90,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
             both zeros.
 
     Returns:
-        Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]
+        Tuple[pd.DataFrame, Union[Column, Figure, GridBox, Tabs]]
     """
 
     if not controls_df.index.equals(result_df.index):
@@ -99,10 +101,12 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                       'results')
 
     if ref_label is None:
-        assert np.all(controls_df.index.names == result_df.index.names), 'Unable to resolve different index names, ' \
-                                                                         'please specify values for `ref_label` instead'
-        assert not (None in controls_df.index.names), 'Some index levels in `controls_df` do not have names'
-        assert not (None in result_df.index.names), 'Some index levels in `result_df` do not have names'
+        if not np.all(controls_df.index.names == result_df.index.names):
+            raise RuntimeError('Unable to resolve different index names, please specify values for `ref_label` instead')
+        if None in controls_df.index.names:
+            raise RuntimeError('Some index levels in `controls_df` do not have names')
+        if None in result_df.index.names:
+            raise RuntimeError('Some index levels in `result_df` do not have names')
         ref_label = list(controls_df.index.names)
     elif isinstance(ref_label, Hashable):
         ref_label = [ref_label]
@@ -172,42 +176,61 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         if glyph_col is None:  # Single glyphs
             p.circle(**glyph_params)
         else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-            for i, gc in enumerate(sorted(fig_df[glyph_col].unique())):
+            for j, gc in enumerate(sorted(fig_df[glyph_col].unique())):
                 source_view = CDSView(source=source, filters=[GroupFilter(column_name=glyph_col, group=gc)])
-                p.circle(view=source_view, legend_label=gc, color=color_palette[i], **glyph_params)
+                p.circle(view=source_view, legend_label=gc, color=color_palette[j], **glyph_params)
             apply_legend_settings(p)
         if identity_line:
             p.add_layout(slope)
         fig = p
     else:  # Facet plot
-        fig = []
-        facet_column_items = fig_df[facet_col].unique().tolist()
-        facet_column_items = sorted(facet_column_items) if facet_sort_order else facet_column_items
-        linked_axes = {}
-        for i, fc in enumerate(facet_column_items):
-            p = figure(title=fc, **figure_params, **linked_axes)
-            filters = [GroupFilter(column_name=facet_col, group=fc)]
-            if glyph_col is None:  # Single glyphs
-                source_view = CDSView(source=source, filters=filters)
-                p.circle(view=source_view, **glyph_params)
-            else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-                for j, gc in enumerate(sorted(fig_df[glyph_col].unique())):
-                    filters_ = filters + [GroupFilter(column_name=glyph_col, group=gc)]
-                    source_view = CDSView(source=source, filters=filters_)
-                    p.circle(view=source_view, legend_label=gc, color=color_palette[j], **glyph_params)
-                apply_legend_settings(p)
+        plots = []
 
-            if (i == 0) and (facet_sync_axes is not None):
-                if facet_sync_axes.lower() in ['x', 'both']:
-                    linked_axes['x_range'] = p.x_range
-                if facet_sync_axes.lower() in ['y', 'both']:
-                    linked_axes['y_range'] = p.y_range
+        n = facet_max_subplot
+        facet_col_items = fig_df[facet_col].unique().tolist()
+        facet_col_items = sort_nicely(facet_col_items) if facet_sort_order else facet_col_items
+        facet_col_items = [facet_col_items[i * n: (i + 1) * n] for i in range((len(facet_col_items) + n - 1) // n)]
 
-            if identity_line:
-                p.add_layout(slope)
+        for i, fc_items in enumerate(facet_col_items):
+            # Create plots
+            fig = []
+            linked_axes = {}
+            for j, fc in enumerate(fc_items):
+                p = figure(title=fc, **figure_params, **linked_axes)
+                filters = [GroupFilter(column_name=facet_col, group=fc)]
+                if glyph_col is None:  # Single glyphs
+                    source_view = CDSView(source=source, filters=filters)
+                    p.circle(view=source_view, **glyph_params)
+                else:  # Iterate through unique `glyph_col` values to use interactive legend feature
+                    for k, gc in enumerate(sorted(fig_df[glyph_col].unique())):
+                        filters_ = filters + [GroupFilter(column_name=glyph_col, group=gc)]
+                        source_view = CDSView(source=source, filters=filters_)
+                        p.circle(view=source_view, legend_label=gc, color=color_palette[k], **glyph_params)
+                    apply_legend_settings(p)
 
-            fig.append(p)
-        fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode='stretch_both', merge_tools=True)
+                if (j == 0) and (facet_sync_axes is not None):
+                    if facet_sync_axes.lower() in ['x', 'both']:
+                        linked_axes['x_range'] = p.x_range
+                    if facet_sync_axes.lower() in ['y', 'both']:
+                        linked_axes['y_range'] = p.y_range
+
+                if identity_line:
+                    p.add_layout(slope)
+
+                fig.append(p)
+            fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode='stretch_both', merge_tools=True)
+
+            if len(facet_col_items) > 1:  # If there will be multiple tabs, convert figure into a Panel
+                start_num = i * n + 1
+                end_num = i * n + len(fc_items)
+                fig = Panel(child=fig, title=f'Plots {start_num}-{end_num}')
+
+            plots.append(fig)
+
+        if len(plots) == 1:
+            fig = plots[0]
+        else:
+            fig = Tabs(tabs=plots)
 
     if figure_title is not None:
         fig = _wrap_figure_title(fig, figure_title)
@@ -262,10 +285,12 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
                       'results')
 
     if ref_label is None:
-        assert np.all(controls_df.index.names == result_df.index.names), 'Unable to resolve different index names, ' \
-                                                                         'please specify values for `ref_label` instead'
-        assert not (None in controls_df.index.names), 'Some index levels in `controls_df` do not have names'
-        assert not (None in result_df.index.names), 'Some index levels in `result_df` do not have names'
+        if not np.all(controls_df.index.names == result_df.index.names):
+            raise RuntimeError('Unable to resolve different index names, please specify values for `ref_label` instead')
+        if None in controls_df.index.names:
+            raise RuntimeError('Some index levels in `controls_df` do not have names')
+        if None in result_df.index.names:
+            raise RuntimeError('Some index levels in `result_df` do not have names')
         ref_label = list(controls_df.index.names)
     elif isinstance(ref_label, Hashable):
         ref_label = [ref_label]
@@ -378,10 +403,10 @@ def _simplify_tlfd_index(df: Union[pd.DataFrame, pd.Series], low: float = -2.0,
 def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
                     category_labels: Dict = None, controls_name: str = 'controls', result_name: str = 'model',
                     bin_start: int = 0, bin_end: int = 200, bin_step: int = 2, facet_col_wrap: int = 2,
-                    facet_sort_order: bool = True, facet_sync_axes: str = 'both',
+                    facet_sort_order: bool = True, facet_sync_axes: str = 'both', facet_max_subplot: int = 9,
                     legend_label_text_font_size: str = '11px', figure_title: str = None, plot_height: int = None,
                     controls_line_colour: str = 'red', controls_line_width: int = 2
-                    ) -> Tuple[pd.DataFrame, Union[Column, GridBox]]:
+                    ) -> Tuple[pd.DataFrame, Union[Column, GridBox, Tabs]]:
     """Create an interactive Bokeh-based facet plot of TLFD diagrams using the trips table from a MicrosimData instance
     and a targets table.
 
@@ -402,6 +427,8 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
             sorted by unique ``facet_col`` values.
         facet_sync_axes (str, optional): Defaults to ``'both'``. Option to sync/link facet axes. Accepts one of
             ``['both', 'x', 'y']``. Set to None to disable linked facet plot axes.
+        facet_max_subplot (int, optional): Defaults to ``9``. The maximum number of facet subplots per tab. If the
+            number of subplots exceed this value, a tabbed interface will be used.
         legend_label_text_font_size (str, optional): Defaults to ``'11px'``. The text size of the legend labels.
         figure_title (str, optional): Defaults to ``None``. The chart title to use.
         plot_height (int, optional): Defaults to ``None``. The desired plot height. For facet plots, this value will be
@@ -440,29 +467,48 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
     figure_params = _prep_figure_params('Bin', 'Proportion', tooltips, plot_height)
 
     # Plot figure
-    fig = []
-    facet_column_items = df[data_label].unique().tolist()
-    facet_column_items = sorted(facet_column_items) if facet_sort_order else facet_column_items
-    linked_axes = {}
-    for i, fc in enumerate(facet_column_items):
-        p = figure(title=fc, **figure_params, **linked_axes)
-        subset = df[df[data_label] == fc]  # We do it this way because CDSView doesn't support connected lines
-        source = ColumnDataSource(subset)
-        p.line(source=source, x='bin_start', y='target', line_color=controls_line_colour,
-               line_width=controls_line_width, legend_label=controls_name)
-        p.vbar(source=source, x='bin_start', top='model', bottom=0, width=1.25, legend_label=result_name,
-               fill_alpha=0.2)
-        p.y_range.start = 0
-        p.legend.label_text_font_size = legend_label_text_font_size
+    plots = []
 
-        if (i == 0) and (facet_sync_axes is not None):
-            if facet_sync_axes.lower() in ['x', 'both']:
-                linked_axes['x_range'] = p.x_range
-            if facet_sync_axes.lower() in ['y', 'both']:
-                linked_axes['y_range'] = p.y_range
+    n = facet_max_subplot
+    facet_col_items = df[data_label].unique().tolist()
+    facet_col_items = sort_nicely(facet_col_items) if facet_sort_order else facet_col_items
+    facet_col_items = [facet_col_items[i * n: (i + 1) * n] for i in range((len(facet_col_items) + n - 1) // n)]
 
-        fig.append(p)
-    fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode='stretch_both', merge_tools=True)
+    for i, fc_items in enumerate(facet_col_items):
+        # Create plots
+        fig = []
+        linked_axes = {}
+        for j, fc in enumerate(fc_items):
+            p = figure(title=fc, **figure_params, **linked_axes)
+            subset = df[df[data_label] == fc]  # We do it this way because CDSView doesn't support connected lines
+            source = ColumnDataSource(subset)
+            p.line(source=source, x='bin_start', y='target', line_color=controls_line_colour,
+                   line_width=controls_line_width, legend_label=controls_name)
+            p.vbar(source=source, x='bin_start', top='model', bottom=0, width=1.25, legend_label=result_name,
+                   fill_alpha=0.2)
+            p.y_range.start = 0
+            p.legend.label_text_font_size = legend_label_text_font_size
+
+            if (j == 0) and (facet_sync_axes is not None):
+                if facet_sync_axes.lower() in ['x', 'both']:
+                    linked_axes['x_range'] = p.x_range
+                if facet_sync_axes.lower() in ['y', 'both']:
+                    linked_axes['y_range'] = p.y_range
+
+            fig.append(p)
+        fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode='stretch_both', merge_tools=True)
+
+        if len(facet_col_items) > 1:  # If there will be multiple tabs, convert figure into a Panel
+            start_num = i * n + 1
+            end_num = i * n + len(fc_items)
+            fig = Panel(child=fig, title=f'Plots {start_num}-{end_num}')
+
+        plots.append(fig)
+
+    if len(plots) == 1:
+        fig = plots[0]
+    else:
+        fig = Tabs(tabs=plots)
 
     if figure_title is not None:
         fig = _wrap_figure_title(fig, figure_title)
