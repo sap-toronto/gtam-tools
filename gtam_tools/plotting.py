@@ -11,6 +11,35 @@ from bokeh.models import (CDSView, ColumnDataSource, Div, FactorRange,
 from bokeh.palettes import Category20, Set3
 from bokeh.plotting import Figure, figure
 
+# region Shared functions
+
+def _check_df_indices(controls_df: pd.DataFrame, result_df: pd.DataFrame):
+    if not controls_df.index.equals(result_df.index):
+        warnings.warn('Indices for `controls_df` and `result_df` are not identical; function may not produce desired '
+                      'results')
+    if not controls_df.columns.equals(result_df.columns):
+        warnings.warn('Columns for `controls_df` and `result_df` are not identical; function may not produce desired '
+                      'results')
+
+
+def _check_ref_label(ref_label: Union[str, List[str]], controls_df: pd.DataFrame, result_df: pd.DataFrame) -> List[str]:
+    if ref_label is None:
+        if not np.all(controls_df.index.names == result_df.index.names):
+            raise RuntimeError('Unable to resolve different index names, please specify values for `ref_label` instead')
+        if None in controls_df.index.names:
+            raise RuntimeError('Some index levels in `controls_df` do not have names')
+        if None in result_df.index.names:
+            raise RuntimeError('Some index levels in `result_df` do not have names')
+        ref_label = list(controls_df.index.names)
+    elif isinstance(ref_label, Hashable):
+        ref_label = [ref_label]
+    elif isinstance(ref_label, List):
+        pass
+    else:
+        raise RuntimeError('Invalid data type provided for `ref_label`')
+
+    return ref_label
+
 
 def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable, Hashable]], plot_height: int = None):
     figure_params = {
@@ -26,6 +55,8 @@ def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashabl
 def _wrap_figure_title(fig, figure_title: str):
     title = Div(text=f'<h2>{figure_title}</h2>')
     return column(children=[title, fig], sizing_mode='stretch_width')
+
+# endregion
 
 
 def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
@@ -92,28 +123,9 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     Returns:
         Tuple[pd.DataFrame, Union[Column, Figure, GridBox, Tabs]]
     """
+    _check_df_indices(controls_df, result_df)
 
-    if not controls_df.index.equals(result_df.index):
-        warnings.warn('Indices for `controls_df` and `result_df` are not identical; function may not produce desired '
-                      'results')
-    if not controls_df.columns.equals(result_df.columns):
-        warnings.warn('Columns for `controls_df` and `result_df` are not identical; function may not produce desired '
-                      'results')
-
-    if ref_label is None:
-        if not np.all(controls_df.index.names == result_df.index.names):
-            raise RuntimeError('Unable to resolve different index names, please specify values for `ref_label` instead')
-        if None in controls_df.index.names:
-            raise RuntimeError('Some index levels in `controls_df` do not have names')
-        if None in result_df.index.names:
-            raise RuntimeError('Some index levels in `result_df` do not have names')
-        ref_label = list(controls_df.index.names)
-    elif isinstance(ref_label, Hashable):
-        ref_label = [ref_label]
-    elif isinstance(ref_label, List):
-        pass
-    else:
-        raise RuntimeError('Invalid data type provided for `ref_label`')
+    ref_label = _check_ref_label(ref_label, controls_df, result_df)
 
     if hover_col is None:
         hover_col = []
@@ -276,28 +288,9 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     Returns:
         Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]
     """
+    _check_df_indices(controls_df, result_df)
 
-    if not controls_df.index.equals(result_df.index):
-        warnings.warn('Indices for `controls_df` and `result_df` are not identical; function may not produce desired '
-                      'results')
-    if not controls_df.columns.equals(result_df.columns):
-        warnings.warn('Columns for `controls_df` and `result_df` are not identical; function may not produce desired '
-                      'results')
-
-    if ref_label is None:
-        if not np.all(controls_df.index.names == result_df.index.names):
-            raise RuntimeError('Unable to resolve different index names, please specify values for `ref_label` instead')
-        if None in controls_df.index.names:
-            raise RuntimeError('Some index levels in `controls_df` do not have names')
-        if None in result_df.index.names:
-            raise RuntimeError('Some index levels in `result_df` do not have names')
-        ref_label = list(controls_df.index.names)
-    elif isinstance(ref_label, Hashable):
-        ref_label = [ref_label]
-    elif isinstance(ref_label, List):
-        pass
-    else:
-        raise RuntimeError('Invalid data type provided for `ref_label`')
+    ref_label = _check_ref_label(ref_label, controls_df, result_df)
 
     if label_col is None:
         label_col = controls_df.index.names
@@ -440,13 +433,7 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
     Returns:
         Tuple[pd.DataFrame, Union[Column, GridBox]]
     """
-
-    if not controls_df.index.equals(result_df.index):
-        warnings.warn('Indices for `controls_df` and `result_df` are not identical; function may not produce desired '
-                      'results')
-    if not controls_df.columns.equals(result_df.columns):
-        warnings.warn('Columns for `controls_df` and `result_df` are not identical; function may not produce desired '
-                      'results')
+    _check_df_indices(controls_df, result_df)
 
     # Calculate distributions
     model_tlfd_dist = result_df.div(result_df.sum(axis=0), axis=1)
