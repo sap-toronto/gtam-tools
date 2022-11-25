@@ -19,7 +19,7 @@ setup(
     include_package_data=True,
     python_requires='>=3.7',
     install_requires=[
-        'bokeh',
+        'bokeh<3.0.0',
         'geopandas>=0.9.0',
         'numpy',
         'pandas',
