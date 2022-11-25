@@ -1,9 +1,12 @@
 import warnings
+from os import PathLike
+from pathlib import Path
 from typing import Any, Dict, Hashable, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from balsa.routines import sort_nicely
+from bokeh.io import output_file, save
 from bokeh.layouts import Column, GridBox, column, gridplot
 from bokeh.models import (CDSView, ColumnDataSource, Div, FactorRange,
                           GroupFilter, NumeralTickFormatter, Panel, Slope,
@@ -501,3 +504,18 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
         fig = _wrap_figure_title(fig, figure_title)
 
     return df, fig
+
+
+def save_bokeh_figure(fig: Union[Column, Figure, GridBox, Tabs], dst: Union[str, PathLike], *, title: str = None):
+    """Saves a Bokeh figure to an HTML document
+
+    Args:
+        fig: The Bokeh figure object to save.
+        dst (Union[str, PathLike]): The destination filepath to save figure to.
+        title (str, optional): Defaults to ``None``. The title for the HTML document. If ``None``, the basename of the
+            destination file path will be used
+    """
+    dst = Path(dst)
+    title = dst.stem if title is None else title
+    output_file(dst.as_posix(), title=title, mode='cdn')  # Set the output destination
+    save(fig)  # Save the file
