@@ -93,8 +93,12 @@ def _prep_scatterplot_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
 
 def _add_circle_glyphs(p: figure, *, mask: List[bool] = None, **kwargs):
-    view = None if mask is None else CDSView(filter=BooleanFilter(mask))
-    p.circle(view=view, **kwargs)  # Adds to `p` inplace
+    """Adds scatterplot glyph to an existing figure"""
+    if mask is not None:
+        view = CDSView(filter=BooleanFilter(mask))
+        p.circle(view=view, **kwargs)
+    else:
+        p.circle(**kwargs)
 
 
 def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
