@@ -6,8 +6,8 @@ import pandas as pd
 from balsa.routines import sort_nicely
 from bokeh.layouts import Column, GridBox, column, gridplot
 from bokeh.models import (BooleanFilter, CDSView, ColumnDataSource, Div,
-                          FactorRange, NumeralTickFormatter, Slope, TabPanel,
-                          Tabs)
+                          FactorRange, GroupFilter, NumeralTickFormatter, Slope,
+                          TabPanel, Tabs)
 from bokeh.palettes import Category20, Set3
 from bokeh.plotting import figure
 
@@ -90,15 +90,6 @@ def _prep_scatterplot_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         fig_df[data_label] = fig_df[data_label].map(label_totals['label'])
 
     return df, fig_df
-
-
-def _add_circle_glyphs(p: figure, *, mask: List[bool] = None, **kwargs):
-    """Adds scatterplot glyph to an existing figure"""
-    if mask is not None:
-        view = CDSView(filter=BooleanFilter(mask))
-        p.circle(view=view, **kwargs)
-    else:
-        p.circle(**kwargs)
 
 
 def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
@@ -216,11 +207,12 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     if facet_col is None:  # Basic plot
         p = figure(sizing_mode=sizing_mode, **figure_params)
         if glyph_col is None:  # Single glyphs
-            _add_circle_glyphs(p, **glyph_params)
+                p.circle(**glyph_params)
         else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-            for j, (gc, subset) in enumerate(fig_df.groupby(glyph_col)):
-                mask = fig_df.index.isin(subset.index).tolist()
-                _add_circle_glyphs(p, mask=mask, legend_label=gc, color=color_palette[j], **glyph_params)
+            for j, gc in enumerate(fig_df[glyph_col].unique()):
+                glyph_group_filter = GroupFilter(column_name=glyph_col, group=gc)
+                view = CDSView(filter=glyph_group_filter)
+                p.circle(view=view, legend_label=gc, color=color_palette[j], **glyph_params)
             apply_legend_settings(p)
         if identity_line:
             p.add_layout(slope)
@@ -239,13 +231,15 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
             linked_axes = {}
             for j, fc in enumerate(fc_items):
                 p = figure(title=fc, sizing_mode=sizing_mode, **figure_params, **linked_axes)
-                mask = fig_df[facet_col] == fc
+                facet_group_filter = GroupFilter(column_name=facet_col, group=fc)
                 if glyph_col is None:  # Single glyphs
-                    _add_circle_glyphs(p, mask=mask, **glyph_params)
+                    view = CDSView(filter=facet_group_filter)
+                    p.circle(view=view, **glyph_params)
                 else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-                    for k, (gc, subset) in enumerate(fig_df.groupby(glyph_col)):
-                        submask = (mask & (fig_df.index.isin(subset.index))).tolist()
-                        _add_circle_glyphs(p, mask=submask, legend_label=gc, color=color_palette[k], **glyph_params)
+                    for k, gc in enumerate(fig_df[glyph_col].unique()):
+                        glyph_group_filter = GroupFilter(column_name=glyph_col, group=gc)
+                        view = CDSView(filter=facet_group_filter & glyph_group_filter)
+                        p.circle(view=view, legend_label=gc, color=color_palette[k], **glyph_params)
                     apply_legend_settings(p)
 
                 if (j == 0) and (facet_sync_axes is not None):
