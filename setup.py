@@ -17,7 +17,7 @@ setup(
     packages=find_packages(),
     package_data={'': ['resource_data/*.csv']},
     include_package_data=True,
-    python_requires='>=3.7',
+    python_requires='>=3.8',
     install_requires=[
         'bokeh>=3.0.0',
         'geopandas>=0.9.0',
