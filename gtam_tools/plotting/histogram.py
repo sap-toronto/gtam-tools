@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Tuple
 
 import numpy as np
@@ -6,13 +8,13 @@ from bokeh.core.enums import SizingModeType
 from bokeh.layouts import gridplot
 from bokeh.models import LayoutDOM as BokehFigure
 from bokeh.plotting import figure
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from .common import wrap_title
 from .resources import SyncAxesOptions
 
 
-def _core_get_histogram_data(data: ArrayLike, *, bin_step: int = 1, use_abs: bool = False):
+def _core_get_histogram_data(data: ArrayLike, *, bin_step: int = 1, use_abs: bool = False) -> Tuple[NDArray, NDArray]:
     if use_abs:
         data = np.absolute(data)
     min_val = int(np.amin(data))
@@ -20,8 +22,8 @@ def _core_get_histogram_data(data: ArrayLike, *, bin_step: int = 1, use_abs: boo
     return np.histogram(data, bins=range(min_val, max_val, bin_step))
 
 
-def _core_create_histogram(hist: ArrayLike, edges: ArrayLike, **kwargs):
-    fig = figure(**kwargs)
+def _core_create_histogram(hist: ArrayLike, edges: ArrayLike, **kwargs) -> figure:
+    fig: figure = figure(**kwargs)
     fig.quad(top=hist, bottom=0, left=edges[:-1], right=edges[1:])
     return fig
 

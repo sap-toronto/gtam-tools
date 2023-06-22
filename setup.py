@@ -21,7 +21,7 @@ setup(
     install_requires=[
         'bokeh>=3.0.0',
         'geopandas>=0.9.0',
-        'numpy',
+        'numpy>=1.20',
         'pandas',
         'pyproj',
         'wsp-balsa>=1.2.2',
