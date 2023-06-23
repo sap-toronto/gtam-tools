@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from pathlib import Path
 from typing import Union
@@ -64,9 +66,11 @@ def read_tts_cross_tabulation_file(fp: Union[str, Path]) -> pd.DataFrame:
 
 def _read_csv_tts_ct_data(fp: Path, row_att: str, col_att: str, skip_rows: int, **kwargs) -> pd.DataFrame:
     try:  # First try column format
-        df = pd.read_csv(fp, index_col=[row_att, col_att], skiprows=skip_rows, delim_whitespace=True, **kwargs)
-    except ValueError:  # Else try table format
-        df = pd.read_csv(fp, index_col=0, skiprows=skip_rows, **kwargs)
+        df: pd.DataFrame = pd.read_csv(
+            fp, index_col=[row_att, col_att], skiprows=skip_rows, delim_whitespace=True, engine='c', **kwargs
+        )
+    except Exception:  # Else try table format
+        df: pd.DataFrame = pd.read_csv(fp, index_col=0, skiprows=skip_rows, engine='c', **kwargs)
         df.index.name = row_att
         df.columns.name = col_att
         df = df.stack().to_frame(name='total')
