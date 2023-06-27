@@ -1,18 +1,15 @@
 import warnings
-from os import PathLike
-from pathlib import Path
 from typing import Any, Dict, Hashable, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
 from balsa.routines import sort_nicely
-from bokeh.io import output_file, save
 from bokeh.layouts import Column, GridBox, column, gridplot
 from bokeh.models import (CDSView, ColumnDataSource, Div, FactorRange,
-                          GroupFilter, NumeralTickFormatter, Panel, Slope,
+                          GroupFilter, NumeralTickFormatter, Slope, TabPanel,
                           Tabs)
 from bokeh.palettes import Category20, Set3
-from bokeh.plotting import Figure, figure
+from bokeh.plotting import figure
 
 # region Shared functions
 
@@ -44,22 +41,55 @@ def _check_ref_label(ref_label: Union[str, List[str]], controls_df: pd.DataFrame
     return ref_label
 
 
-def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable, Hashable]], plot_height: int = None):
+def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable, Hashable]], plot_width: int = None,
+                        plot_height: int = None) -> Dict[str, Any]:
     figure_params = {
         'x_axis_label': x_label, 'y_axis_label': y_label, 'tooltips': tooltips, 'toolbar_location': 'above',
         'tools': 'pan,zoom_in,zoom_out,box_zoom,wheel_zoom,hover,save,reset', 'output_backend': 'webgl'
     }
+    if plot_width is not None:
+        figure_params['width'] = plot_width
     if plot_height is not None:
-        figure_params['plot_height'] = plot_height
+        figure_params['height'] = plot_height
 
     return figure_params
 
 
-def _wrap_figure_title(fig, figure_title: str):
+def _wrap_figure_title(fig, figure_title: str) -> Column:
     title = Div(text=f'<h2>{figure_title}</h2>')
     return column(children=[title, fig], sizing_mode='stretch_width')
 
 # endregion
+
+
+# region Scatterplot comparison
+
+def _prep_scatterplot_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, ref_label: List[str], *,
+                           category_labels: Dict = None, controls_name: str = 'controls', result_name: str = 'model',
+                           totals_in_titles: bool = True, filter_zero_rows: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    df = controls_df.stack()
+    df.index.names = [*ref_label, data_label]
+    df = df.to_frame(name=controls_name)
+
+    df[result_name] = result_df.stack()
+    df[result_name].fillna(0, inplace=True)
+
+    if filter_zero_rows:
+        df = df[df.sum(axis=1) > 0].copy()
+
+    df.reset_index(inplace=True)
+
+    if category_labels is not None:
+        df[data_label] = df[data_label].map(category_labels)
+
+    fig_df = df.copy()
+    if totals_in_titles:
+        label_totals = fig_df.groupby(data_label)[[controls_name, result_name]].sum()
+        label_totals['label'] = label_totals.index + f' ({controls_name}=' + label_totals[controls_name].map(
+            '{:,.0f}'.format) + f', {result_name}=' + label_totals[result_name].map('{:,.0f}'.format) + ')'
+        fig_df[data_label] = fig_df[data_label].map(label_totals['label'])
+
+    return df, fig_df
 
 
 def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
@@ -69,11 +99,11 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                            facet_sort_order: bool = True, facet_sync_axes: str = 'both', facet_max_subplot: int = 9,
                            hover_col: Union[str, List[str]] = None, glyph_col: str = None, glyph_legend: bool = True,
                            glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px',
-                           figure_title: str = None, plot_height: int = None, identity_line: bool = True,
-                           identity_colour: str = 'red', identity_width: int = 2,
-                           color_palette: Dict[int, Any] = Category20, calc_pct_diff: bool = True,
-                           totals_in_titles: bool = True, filter_zero_rows: bool = True
-                           ) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox, Tabs]]:
+                           figure_title: str = None, plot_width: int = None, plot_height: int = None,
+                           sizing_mode: str = None, identity_line: bool = True, identity_colour: str = 'red',
+                           identity_width: int = 2, color_palette: Dict[int, Any] = Category20,
+                           calc_pct_diff: bool = True, totals_in_titles: bool = True, filter_zero_rows: bool = True
+                           ) -> Tuple[pd.DataFrame, Union[Column, figure, GridBox, Tabs]]:
     """Creates an interactive Bokeh-based scatter plot to compare data.
 
     Args:
@@ -110,8 +140,12 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
             plot/facet subplot. Please refer to the Bokeh ``Legend`` documentation for acceptable values.
         glyph_legend_label_text_font_size (str, optional): Defaults to ``'11px'``. The text size of the legend labels.
         figure_title (str, optional): Defaults to ``None``. The chart title to use.
+        plot_width (int, optional): Defaults to ``None``. The desired plot width. For facet plots, this value will be
+            set for each subplot.
         plot_height (int, optional): Defaults to ``None``. The desired plot height. For facet plots, this value will be
             set for each subplot.
+        sizing_mode (str, optional): Defaults to ``None``. A Bokeh SizingModeType. How will the items in the layout
+            resize to fill the available space. Please refer to Bokeh documentation for acceptable values.
         identity_line (bool, optional): Defaults to ``True``. A flag to include an identity (1:1) line in the
             scatter plot.
         identity_colour (str, optional): Defaults to ``'red'``. The colour to use for the identity line. Accepts html
@@ -139,28 +173,10 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     else:
         raise RuntimeError('Invalid data type provided for `ref_label`')
 
-    # Prepare data for plotting
-    df = controls_df.stack()
-    df.index.names = [*ref_label, data_label]
-    df = df.to_frame(name=controls_name)
-
-    df[result_name] = result_df.stack()
-    df[result_name].fillna(0, inplace=True)
-
-    if filter_zero_rows:
-        df = df[df.sum(axis=1) > 0].copy()
-
-    df.reset_index(inplace=True)
-
-    if category_labels is not None:
-        df[data_label] = df[data_label].map(category_labels)
-
-    fig_df = df.copy()
-    if totals_in_titles:
-        label_totals = fig_df.groupby(data_label)[[controls_name, result_name]].sum()
-        label_totals['label'] = label_totals.index + f' ({controls_name}=' + label_totals[controls_name].map(
-            '{:,.0f}'.format) + f', {result_name}=' + label_totals[result_name].map('{:,.0f}'.format) + ')'
-        fig_df[data_label] = fig_df[data_label].map(label_totals['label'])
+    df, fig_df = _prep_scatterplot_data(
+        controls_df, result_df, data_label, ref_label, category_labels=category_labels, controls_name=controls_name,
+        result_name=result_name, totals_in_titles=totals_in_titles, filter_zero_rows=filter_zero_rows
+    )
 
     if glyph_col is not None:
         n_colors = max(len(fig_df[glyph_col].unique()), 3)
@@ -170,7 +186,9 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     source = ColumnDataSource(fig_df)
     tooltips = [(c, '@{%s}' % c) for c in hover_col]
     tooltips += [(controls_name, '@{%s}{0,0.0}' % controls_name), (result_name, '@{%s}{0,0.0}' % result_name)]
-    figure_params = _prep_figure_params(controls_name, result_name, tooltips, plot_height)
+    figure_params = _prep_figure_params(
+        controls_name, result_name, tooltips, plot_width=plot_width, plot_height=plot_height
+    )
     glyph_params = {
         'source': source, 'x': controls_name, 'y': result_name, 'size': size, 'fill_alpha': fill_alpha,
         'hover_color': 'red'
@@ -178,7 +196,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
     slope = Slope(gradient=1, y_intercept=0, line_color=identity_colour, line_dash='dashed', line_width=identity_width)
 
-    def apply_legend_settings(p_: Figure):
+    def apply_legend_settings(p_: figure):
         p_.legend.visible = glyph_legend
         p_.legend.title = glyph_col
         p_.legend.location = glyph_legend_location
@@ -187,13 +205,14 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
     # Plot figure
     if facet_col is None:  # Basic plot
-        p = figure(sizing_mode='stretch_both', **figure_params)
+        p = figure(sizing_mode=sizing_mode, **figure_params)
         if glyph_col is None:  # Single glyphs
-            p.circle(**glyph_params)
+                p.circle(**glyph_params)
         else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-            for j, gc in enumerate(sorted(fig_df[glyph_col].unique())):
-                source_view = CDSView(source=source, filters=[GroupFilter(column_name=glyph_col, group=gc)])
-                p.circle(view=source_view, legend_label=gc, color=color_palette[j], **glyph_params)
+            for j, gc in enumerate(fig_df[glyph_col].unique()):
+                glyph_group_filter = GroupFilter(column_name=glyph_col, group=gc)
+                view = CDSView(filter=glyph_group_filter)
+                p.circle(view=view, legend_label=gc, color=color_palette[j], **glyph_params)
             apply_legend_settings(p)
         if identity_line:
             p.add_layout(slope)
@@ -211,16 +230,16 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
             fig = []
             linked_axes = {}
             for j, fc in enumerate(fc_items):
-                p = figure(title=fc, **figure_params, **linked_axes)
-                filters = [GroupFilter(column_name=facet_col, group=fc)]
+                p = figure(title=fc, sizing_mode=sizing_mode, **figure_params, **linked_axes)
+                facet_group_filter = GroupFilter(column_name=facet_col, group=fc)
                 if glyph_col is None:  # Single glyphs
-                    source_view = CDSView(source=source, filters=filters)
-                    p.circle(view=source_view, **glyph_params)
+                    view = CDSView(filter=facet_group_filter)
+                    p.circle(view=view, **glyph_params)
                 else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-                    for k, gc in enumerate(sorted(fig_df[glyph_col].unique())):
-                        filters_ = filters + [GroupFilter(column_name=glyph_col, group=gc)]
-                        source_view = CDSView(source=source, filters=filters_)
-                        p.circle(view=source_view, legend_label=gc, color=color_palette[k], **glyph_params)
+                    for k, gc in enumerate(fig_df[glyph_col].unique()):
+                        glyph_group_filter = GroupFilter(column_name=glyph_col, group=gc)
+                        view = CDSView(filter=facet_group_filter & glyph_group_filter)
+                        p.circle(view=view, legend_label=gc, color=color_palette[k], **glyph_params)
                     apply_legend_settings(p)
 
                 if (j == 0) and (facet_sync_axes is not None):
@@ -233,12 +252,12 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                     p.add_layout(slope)
 
                 fig.append(p)
-            fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode='stretch_both', merge_tools=True)
+            fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode=sizing_mode, merge_tools=True)
 
-            if len(facet_col_items) > 1:  # If there will be multiple tabs, convert figure into a Panel
+            if len(facet_col_items) > 1:  # If there will be multiple tabs, convert figure into a TabPanel
                 start_num = i * n + 1
                 end_num = i * n + len(fc_items)
-                fig = Panel(child=fig, title=f'Plots {start_num}-{end_num}')
+                fig = TabPanel(child=fig, title=f'Plots {start_num}-{end_num}')
 
             plots.append(fig)
 
@@ -256,55 +275,14 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
     return df, fig
 
+# endregion
 
-def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
-                            ref_label: Union[str, List[str]] = None,  category_labels: Dict = None,
-                            label_col: Union[str, List[str]] = None, controls_name: str = 'controls',
-                            result_name: str = 'model', x_axis_label: str = None, figure_title: str = None,
-                            plot_height: int = None, normalize: bool = True, color_palette: Dict[int, Any] = Set3
-                            ) -> Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]:
-    """Creates an interactive Bokeh-based stacked horizontal bar chart to compare data
 
-    Args:
-        controls_df (pd.DataFrame): A DataFrame containing control values. Must be in wide-format where rows represent
-            a reference (e.g. count station, TAZ, geography, etc.) and columns represent the data categories.
-        result_df (pd.DataFrame): A DataFrame containing modelled values. Uses the same format as `controls_df`.
-        data_label (str): The name to use for the data represented by the `controls_df` and `result_df` columns.
-        ref_label (Union[str, List[str]], optional): Defaults to ``None``. The name(s) corresponding to the
-            ``controls_df`` and ``result_df`` indices. The function will try to infer the name(s) from indices of the
-            source DataFrames. If the indicies of the DataFrames are not set, then values must be set for this
-            parameter, otherwise an error will be raised. If providing a value to this parameter and the indices of the
-            source DataFrames are MultiIndex objects, then the provided value must be a list of strings.
-        category_labels (Dict, optional): Defaults to ``None``. Category labels used to rename the `controls_df` and
-            `result_df` columns.
-        label_col (Union[str, List[str]], optional): Defaults to ``None``. The columns to use when for figure axis
-            grouping.
-        controls_name (str, optional): Defaults to ``'controls'``. The name for the controls.
-        result_name (str, optional): Defaults to ``'model'``. The name for the results.
-        x_axis_label (str, optional): Defaults to ``None``. The label to apply to the x axis
-        figure_title (str, optional): Defaults to ``None``. The chart title to use.
-        plot_height (int, optional): Defaults to ``None``. The desired plot height. For facet plots, this value will be
-            set for each subplot.
-        normalize (bool, optional): Defaults to ``True``. Plot the stacked horizontal bar chart with normalized data.
-        color_palette (Dict[str, Any], optional): Defaults to ``Set3``. The Bokeh color palette to use.
+# region Stacked horizontal-bar comparison
 
-    Returns:
-        Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]
-    """
-    _check_df_indices(controls_df, result_df)
-
-    ref_label = _check_ref_label(ref_label, controls_df, result_df)
-
-    if label_col is None:
-        label_col = controls_df.index.names
-    elif isinstance(label_col, Hashable):
-        label_col = [label_col]
-    elif isinstance(label_col, List):
-        pass
-    else:
-        raise RuntimeError('Invalid data type provided for `label_col`')
-
-    # Prepare data
+def _prep_stacked_hbar_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, ref_label: List[str],
+                            label_col: List[str], *, category_labels: Dict = None, controls_name: str = 'controls',
+                            result_name: str = 'model', normalize: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
     df = controls_df.copy()
     df.columns.name = data_label
     df = df.stack().to_frame(name=controls_name)
@@ -338,17 +316,80 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     fig_df.drop(label_col, axis=1, inplace=True)
     fig_df.set_index(['label_col', 'source'], inplace=True)
 
+    return df, fig_df
+
+
+def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
+                            ref_label: Union[str, List[str]] = None, category_labels: Dict = None,
+                            label_col: Union[str, List[str]] = None, controls_name: str = 'controls',
+                            result_name: str = 'model', x_axis_label: str = None, figure_title: str = None,
+                            plot_width: int = None, plot_height: int = None, sizing_mode: str = None,
+                            normalize: bool = True, color_palette: Dict[int, Any] = Set3
+                            ) -> Tuple[pd.DataFrame, Union[Column, figure, GridBox]]:
+    """Creates an interactive Bokeh-based stacked horizontal bar chart to compare data
+
+    Args:
+        controls_df (pd.DataFrame): A DataFrame containing control values. Must be in wide-format where rows represent
+            a reference (e.g. count station, TAZ, geography, etc.) and columns represent the data categories.
+        result_df (pd.DataFrame): A DataFrame containing modelled values. Uses the same format as `controls_df`.
+        data_label (str): The name to use for the data represented by the `controls_df` and `result_df` columns.
+        ref_label (Union[str, List[str]], optional): Defaults to ``None``. The name(s) corresponding to the
+            ``controls_df`` and ``result_df`` indices. The function will try to infer the name(s) from indices of the
+            source DataFrames. If the indicies of the DataFrames are not set, then values must be set for this
+            parameter, otherwise an error will be raised. If providing a value to this parameter and the indices of the
+            source DataFrames are MultiIndex objects, then the provided value must be a list of strings.
+        category_labels (Dict, optional): Defaults to ``None``. Category labels used to rename the `controls_df` and
+            `result_df` columns.
+        label_col (Union[str, List[str]], optional): Defaults to ``None``. The columns to use when for figure axis
+            grouping.
+        controls_name (str, optional): Defaults to ``'controls'``. The name for the controls.
+        result_name (str, optional): Defaults to ``'model'``. The name for the results.
+        x_axis_label (str, optional): Defaults to ``None``. The label to apply to the x axis
+        figure_title (str, optional): Defaults to ``None``. The chart title to use.
+        plot_width (int, optional): Defaults to ``None``. The desired plot width. For facet plots, this value will be
+            set for each subplot.
+        plot_height (int, optional): Defaults to ``None``. The desired plot height. For facet plots, this value will be
+            set for each subplot.
+        sizing_mode (str, optional): Defaults to ``None``. A Bokeh SizingModeType. How will the items in the layout
+            resize to fill the available space. Please refer to Bokeh documentation for acceptable values.
+        normalize (bool, optional): Defaults to ``True``. Plot the stacked horizontal bar chart with normalized data.
+        color_palette (Dict[str, Any], optional): Defaults to ``Set3``. The Bokeh color palette to use.
+
+    Returns:
+        Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]
+    """
+    _check_df_indices(controls_df, result_df)
+
+    ref_label = _check_ref_label(ref_label, controls_df, result_df)
+
+    if label_col is None:
+        label_col = controls_df.index.names
+    elif isinstance(label_col, Hashable):
+        label_col = [label_col]
+    elif isinstance(label_col, List):
+        pass
+    else:
+        raise RuntimeError('Invalid data type provided for `label_col`')
+
+    # Prepare data
+    df, fig_df = _prep_stacked_hbar_data(
+        controls_df, result_df, data_label, ref_label, label_col, category_labels=category_labels,
+        controls_name=controls_name, result_name=result_name, normalize=normalize
+    )
+
     # Plot figure
     x_range = (0, 1) if normalize else (0, int(fig_df.sum(axis=1).max()))
     tooltips = '$name (@y) = @$name{0.0%}' if normalize else '$name (@y) = @$name'
     n_colors = max(len(df[data_label].unique()), 3)
 
     figure_params = {
-        'toolbar_location': 'above', 'sizing_mode': 'stretch_both', 'tools': 'xpan,xwheel_zoom,hover,save,reset',
+        'toolbar_location': 'above', 'sizing_mode': sizing_mode, 'tools': 'xpan,xwheel_zoom,hover,save,reset',
         'output_backend': 'webgl'
     }
+    if plot_width is not None:
+        figure_params['width'] = plot_width
     if plot_height is not None:
-        figure_params['plot_height'] = plot_height
+        figure_params['height'] = plot_height
     if x_axis_label is not None:
         figure_params['x_axis_label'] = x_axis_label
 
@@ -381,6 +422,10 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
 
     return df, fig
 
+# endregion
+
+
+# region TLFD facet plot
 
 def _simplify_tlfd_index(df: Union[pd.DataFrame, pd.Series], low: float = -2.0,
                          high: float = 200.0) -> Union[pd.DataFrame, pd.Series]:
@@ -396,13 +441,33 @@ def _simplify_tlfd_index(df: Union[pd.DataFrame, pd.Series], low: float = -2.0,
     return new_df
 
 
+def _prep_tlfd_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
+                    category_labels: Dict = None, bin_start: int = 0, bin_end: int = 200,
+                    bin_step: int = 2) -> pd.DataFrame:
+    # Calculate distributions
+    model_tlfd_dist = result_df.div(result_df.sum(axis=0), axis=1)
+    model_tlfd_dist.columns.name = data_label
+
+    targets_tlfd_dist = controls_df.div(controls_df.sum(axis=0), axis=1)
+    targets_tlfd_dist.columns.name = data_label
+
+    df = _simplify_tlfd_index(model_tlfd_dist, low=bin_start - bin_step, high=bin_end).stack().to_frame(name='model')
+    df['target'] = _simplify_tlfd_index(targets_tlfd_dist, low=bin_start - bin_step, high=bin_end).stack()
+    df.reset_index(inplace=True)
+
+    if category_labels is not None:
+        df[data_label] = df[data_label].map(category_labels)
+
+    return df
+
+
 def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
                     category_labels: Dict = None, controls_name: str = 'controls', result_name: str = 'model',
                     bin_start: int = 0, bin_end: int = 200, bin_step: int = 2, facet_col_wrap: int = 2,
                     facet_sort_order: bool = True, facet_sync_axes: str = 'both', facet_max_subplot: int = 9,
-                    legend_label_text_font_size: str = '11px', figure_title: str = None, plot_height: int = None,
-                    controls_line_colour: str = 'red', controls_line_width: int = 2
-                    ) -> Tuple[pd.DataFrame, Union[Column, GridBox, Tabs]]:
+                    legend_label_text_font_size: str = '11px', figure_title: str = None, plot_width: int = None,
+                    plot_height: int = None, sizing_mode: str = None, controls_line_colour: str = 'red',
+                    controls_line_width: int = 2) -> Tuple[pd.DataFrame, Union[Column, GridBox, Tabs]]:
     """Create an interactive Bokeh-based facet plot of TLFD diagrams using the trips table from a MicrosimData instance
     and a targets table.
 
@@ -427,8 +492,12 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
             number of subplots exceed this value, a tabbed interface will be used.
         legend_label_text_font_size (str, optional): Defaults to ``'11px'``. The text size of the legend labels.
         figure_title (str, optional): Defaults to ``None``. The chart title to use.
+        plot_width (int, optional): Defaults to ``None``. The desired plot width. For facet plots, this value will be
+            set for each subplot.
         plot_height (int, optional): Defaults to ``None``. The desired plot height. For facet plots, this value will be
             set for each subplot.
+        sizing_mode (str, optional): Defaults to ``None``. A Bokeh SizingModeType. How will the items in the layout
+            resize to fill the available space. Please refer to Bokeh documentation for acceptable values.
         controls_line_colour (str, optional): Defaults to ``'red'``. The colour to use for the control target lines.
             Accepts html colour names.
         controls_line_width (int, optional): Defaults to ``2``. The line width to use for the control target lines.
@@ -438,23 +507,14 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
     """
     _check_df_indices(controls_df, result_df)
 
-    # Calculate distributions
-    model_tlfd_dist = result_df.div(result_df.sum(axis=0), axis=1)
-    model_tlfd_dist.columns.name = data_label
-
-    targets_tlfd_dist = controls_df.div(controls_df.sum(axis=0), axis=1)
-    targets_tlfd_dist.columns.name = data_label
-
-    df = _simplify_tlfd_index(model_tlfd_dist, low=bin_start - bin_step, high=bin_end).stack().to_frame(name='model')
-    df['target'] = _simplify_tlfd_index(targets_tlfd_dist, low=bin_start - bin_step, high=bin_end).stack()
-    df.reset_index(inplace=True)
-
-    if category_labels is not None:
-        df[data_label] = df[data_label].map(category_labels)
+    df = _prep_tlfd_data(
+        controls_df, result_df, data_label, category_labels=category_labels, bin_start=bin_start, bin_end=bin_end,
+        bin_step=bin_step
+    )
 
     # Prepare figure formatting values
     tooltips = [('bin_start', '@bin_start'), (result_name, '@model{0.3f}'), (controls_name, '@target{0.3f}')]
-    figure_params = _prep_figure_params('Bin', 'Proportion', tooltips, plot_height)
+    figure_params = _prep_figure_params('Bin', 'Proportion', tooltips, plot_width=plot_width, plot_height=plot_height)
 
     # Plot figure
     plots = []
@@ -486,12 +546,12 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
                     linked_axes['y_range'] = p.y_range
 
             fig.append(p)
-        fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode='stretch_both', merge_tools=True)
+        fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode=sizing_mode, merge_tools=True)
 
-        if len(facet_col_items) > 1:  # If there will be multiple tabs, convert figure into a Panel
+        if len(facet_col_items) > 1:  # If there will be multiple tabs, convert figure into a TabPanel
             start_num = i * n + 1
             end_num = i * n + len(fc_items)
-            fig = Panel(child=fig, title=f'Plots {start_num}-{end_num}')
+            fig = TabPanel(child=fig, title=f'Plots {start_num}-{end_num}')
 
         plots.append(fig)
 
@@ -505,17 +565,4 @@ def tlfd_facet_plot(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_lab
 
     return df, fig
 
-
-def save_bokeh_figure(fig: Union[Column, Figure, GridBox, Tabs], dst: Union[str, PathLike], *, title: str = None):
-    """Saves a Bokeh figure to an HTML document
-
-    Args:
-        fig: The Bokeh figure object to save.
-        dst (Union[str, PathLike]): The destination filepath to save figure to.
-        title (str, optional): Defaults to ``None``. The title for the HTML document. If ``None``, the basename of the
-            destination file path will be used
-    """
-    dst = Path(dst)
-    title = dst.stem if title is None else title
-    output_file(dst.as_posix(), title=title, mode='cdn')  # Set the output destination
-    save(fig)  # Save the file
+# endregion
