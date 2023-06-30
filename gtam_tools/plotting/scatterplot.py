@@ -139,6 +139,9 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         totals_in_titles (bool, optional): Defaults to ``True``. Include the control and result totals in plot title.
         filter_zero_rows (bool, optional): Defaults to ``True``. Filter out comparisons where controls and results are
             both zeros.
+
+        Returns:
+            A pandas DataFrame and a Bokeh figure
     """
     check_df_indices(controls_df, result_df)
     ref_label = check_ref_label(controls_df, result_df, ref_label)
