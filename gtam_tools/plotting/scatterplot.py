@@ -46,7 +46,7 @@ def _core_get_scatterplot_data(controls_df: pd.DataFrame, result_df: pd.DataFram
     return df, fig_df
 
 
-def _core_create_scatterplot(fig_df: pd.DataFrame, figure_params: Dict[str, Any], glyph_params: Dict[str, Any], *,
+def _core_create_scatterplot(df: pd.DataFrame, figure_params: Dict[str, Any], glyph_params: Dict[str, Any], *,
                              glyph_col: str = None, glyph_color_palette: List[str] = None, glyph_legend: bool = True,
                              glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px',
                              identity_line: bool = True, identity_color: str = 'red', identity_width: int = 2,
@@ -55,7 +55,7 @@ def _core_create_scatterplot(fig_df: pd.DataFrame, figure_params: Dict[str, Any]
     if glyph_col is None:
         p.circle(**glyph_params)
     else:  # Iterate through unique `glyph_col` values to use interactive legend feature
-        for i, gc in enumerate(sort_nicely(fig_df[glyph_col].unique().tolist())):
+        for i, gc in enumerate(sort_nicely(df[glyph_col].unique().tolist())):
             glyph_group_filter = GroupFilter(column_name=glyph_col, group=gc)
             view = CDSView(filter=glyph_group_filter)
             p.circle(view=view, legend_label=gc, color=glyph_color_palette[i], **glyph_params)
@@ -224,7 +224,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
             if len(facet_col_items) > 1:  # If there will be multiple tabs, convert figure into a TabPanel
                 start_num = i * n + 1
                 end_num = i * n + len(fc_items)
-                plot = TabPanel(child=fig, title=f'Plots {start_num}-{end_num}')
+                plot = TabPanel(child=plot, title=f'Plots {start_num}-{end_num}')
             plots.append(plot)
 
         fig = plots[0] if len(plots) == 1 else Tabs(tabs=plots)
