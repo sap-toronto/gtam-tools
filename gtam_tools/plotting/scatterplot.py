@@ -205,8 +205,9 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                     'hover_color': 'red'
                 }
                 p = _core_create_scatterplot(
-                    fig_sub_df, figure_params, glyph_params, glyph_col=glyph_col, glyph_color_palette=color_palette,
-                    glyph_legend=glyph_legend, glyph_legend_location=glyph_legend_location,
+                    fig_sub_df, figure_params, glyph_params, glyph_col=glyph_col,
+                    glyph_color_palette=selected_color_palette, glyph_legend=glyph_legend,
+                    glyph_legend_location=glyph_legend_location,
                     glyph_legend_label_text_font_size=glyph_legend_label_text_font_size, identity_line=identity_line,
                     identity_color=identity_color, identity_width=identity_width, title=fc, **linked_axes
                 )
