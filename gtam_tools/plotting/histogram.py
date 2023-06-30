@@ -35,7 +35,9 @@ def histogram_plot(df: pd.DataFrame, data_col: str, *, facet_col: str = None, fa
         hist, edges = _core_get_histogram_data(df[data_col], bin_step=bin_step, use_abs=use_abs)
         results = pd.DataFrame({'bin_start': edges[:-1], 'bin_end': edges[1:], 'frequency': hist})
 
-        fig = _core_create_histogram(hist, edges, **kwargs)
+        fig = _core_create_histogram(
+            hist, edges, **kwargs, sizing_mode='stretch_both' if title is None else sizing_mode
+        )
     else:
         subplots, results, linked_axes = [], [], {}
         grouper = df.groupby(level=facet_col) if facet_col in df.index.names else df.groupby(facet_col)
@@ -53,7 +55,10 @@ def histogram_plot(df: pd.DataFrame, data_col: str, *, facet_col: str = None, fa
                     linked_axes['y_range'] = fig.y_range
             subplots.append(fig)
         results = pd.concat(results, axis=0)
-        fig = gridplot(subplots, ncols=facet_col_wrap, sizing_mode='stretch_both', toolbar_location='above')
+        fig = gridplot(
+            subplots, ncols=facet_col_wrap, sizing_mode='stretch_both' if title is None else sizing_mode,
+            toolbar_location='above'
+        )
 
     if title is not None:
         fig = wrap_title(fig, title, sizing_mode=sizing_mode)
