@@ -19,22 +19,22 @@ def check_df_indices(controls_df: pd.DataFrame, result_df: pd.DataFrame):
                       'results')
 
 
-def check_ref_label(controls_df: pd.DataFrame, result_df: pd.DataFrame, ref_label: Union[str, List[str]]) -> List[str]:
+def check_ref_label(ref_label: Union[str, List[str]], controls_df: pd.DataFrame, results_df: pd.DataFrame) -> List[str]:
     if ref_label is None:
-        if not np.all(controls_df.index.names == result_df.index.names):
-            raise RuntimeError('Unable to resolve different index names, please specify values for `ref_label` instead')
-        if None in controls_df.index.names:
-            raise RuntimeError('Some index levels in `controls_df` do not have names')
-        if None in result_df.index.names:
-            raise RuntimeError('Some index levels in `result_df` do not have names')
-        ref_label = list(controls_df.index.names)
+       if not np.all(controls_df.index.names == results_df.index.names):
+           raise RuntimeError('Unable to resolve different index names, pleace specify values for \'ref_label\' instead')
+       if None in controls_df.index.names:
+           raise RuntimeError('Some index levels in \'controls_df\' do not have names')
+       if None in results_df.index.names:
+           raise RuntimeError('Some index levels in \'results_df\' do not have names')
+       ref_label = list(controls_df.index.names)
     elif isinstance(ref_label, Hashable):
         ref_label = [ref_label]
     elif isinstance(ref_label, List):
         pass
     else:
-        raise RuntimeError('Invalid data type provided for `ref_label`')
-
+        raise RuntimeError('Invalid data type provided for \'ref_label\'')
+    
     return ref_label
 
 
@@ -53,7 +53,5 @@ def prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable
 
 
 def wrap_title(fig, title: str, *, sizing_mode: SizingModeType = 'stretch_both') -> Column:
-    return column([
-        Div(text=f'<h2>{title}</h2>'),
-        fig
-    ], sizing_mode=sizing_mode)
+    title = Div(text=f'<h2>{figure_title}</h2>')
+    return column(children=[title, fig], sizing_mode='stretch_both')
