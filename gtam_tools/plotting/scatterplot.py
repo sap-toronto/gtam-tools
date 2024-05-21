@@ -223,7 +223,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
                 subset_facet = fig_df[fig_df[facet_col] == fc]
 
-                p = _core_create_scatterplot(subset_facet, p, glyph_col = glyph_col, color_palette = color_palette, glyph_legend = glyph_legend, 
+                p = _core_create_scatterplot(subset_facet, p, glyph_params, glyph_col = glyph_col, color_palette = color_palette, glyph_legend = glyph_legend, 
                                      glyph_legend_location= glyph_legend_location, glyph_legend_label_text_font_size=glyph_legend_label_text_font_size)
 
                 if (j == 0) and (facet_sync_axes is not None):
