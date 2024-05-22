@@ -4,18 +4,36 @@ from typing import Any, Dict, Hashable, List, Tuple, Union
 
 import numpy as np
 import pandas as pd
+
 from balsa.routines import sort_nicely
-from bokeh.core.enums import SizingModeType
 from bokeh.models import ColumnDataSource, FactorRange, NumeralTickFormatter
-from bokeh.palettes import Set3
+from bokeh.layouts import Column, GridBox
+from bokeh.palettes import Category20, Category10, Category20b, Category20c, Set1, Set2, Set3
 from bokeh.plotting import figure
 
-from .common import check_df_indices, check_ref_label, wrap_title
+from common import check_df_indices, check_ref_label, wrap_figure_title
 
 
-def _prep_stacked_hbar_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, ref_label: List[str],
-                            label_col: List[str], *, category_labels: Dict = None, controls_name: str = 'controls',
-                            result_name: str = 'model', normalize: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def prep_stacked_hbar_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, ref_label: Union[str, List[str]],
+                           label_col: Union[str, List[str]], *, category_labels: Dict = None, controls_name: str = 'controls',
+                           result_name: str = 'model', normalize: bool = True)-> Tuple[pd.DataFrame, pd.DataFrame]:
+    """Prepares the data for plotting
+
+    Args:
+        controls_df (pd.DataFrame): A DataFrame containing control values. Must be in wide-format where rows represent a reference and columns represent data categories.
+        result_df (pd.DataFrame): A DataFrame containing modelled values. Must be in the same format as 'controls_df'.
+        data_label (str): The name to use for the data represented by the 'controls_df' and 'result_df' columns.
+        ref_label (Union[str, List[str]]): The name(s) corresponding to the 'controls_df' and 'result_df' indices.
+        label_col (Union[str, List[str]]): The column(s) to use for figure axis grouping. 
+        category_labels (Dict, optional): Defaults to 'None'. Used to rename the 'controls_df' and 'result_df' columns.
+        controls_name (str, optional): Defaults to 'controls'. The name for the controls.
+        result_name (str, optional): Defaults to 'model'. The name for the results.
+        normalize (bool, optional):  Defaults to 'True'. Plot the stacked horizontal bar chart with normalized data. 
+
+    Returns:
+        Tuple[pd.DataFrame, pd.DataFrame]
+    """
+    # Prepare data
     df = controls_df.copy()
     df.columns.name = data_label
     df = df.stack().to_frame(name=controls_name)
@@ -28,7 +46,7 @@ def _prep_stacked_hbar_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
 
     if category_labels is not None:
         df[data_label] = df[data_label].map(category_labels)
-
+        
     # Prepare figure-specific data
     label_col_index = []
     for label in label_col:
@@ -48,16 +66,16 @@ def _prep_stacked_hbar_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     fig_df['label_col'] = [' - '.join([str(v) for v in l]) for l in fig_df[label_col].to_numpy().tolist()]
     fig_df.drop(label_col, axis=1, inplace=True)
     fig_df.set_index(['label_col', 'source'], inplace=True)
-
+    
     return df, fig_df
 
 
 def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, *,
-                            ref_label: Union[str, List[str]] = None, category_labels: Dict = None,
+                            ref_label: Union[str, List[str]] = None,  category_labels: Dict = None,
                             label_col: Union[str, List[str]] = None, controls_name: str = 'controls',
                             result_name: str = 'model', x_axis_label: str = None, figure_title: str = None,
-                            plot_width: int = None, plot_height: int = None, sizing_mode: SizingModeType = None,
-                            normalize: bool = True, color_palette: Dict[int, Any] = Set3):
+                            height: int = None, normalize: bool = True, color_palette: Dict[int, Any] = Set3
+                            ) -> Tuple[pd.DataFrame, Union[Column, figure, GridBox]]:
     """Creates an interactive Bokeh-based stacked horizontal bar chart to compare data
 
     Args:
@@ -72,27 +90,23 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
             source DataFrames are MultiIndex objects, then the provided value must be a list of strings.
         category_labels (Dict, optional): Defaults to ``None``. Category labels used to rename the `controls_df` and
             `result_df` columns.
-        label_col (Union[str, List[str]], optional): Defaults to ``None``. The columns to use when for figure axis
+        label_col (Union[str, List[str]], optional): Defaults to ``None``. The columns to use for figure axis
             grouping.
         controls_name (str, optional): Defaults to ``'controls'``. The name for the controls.
         result_name (str, optional): Defaults to ``'model'``. The name for the results.
         x_axis_label (str, optional): Defaults to ``None``. The label to apply to the x axis
         figure_title (str, optional): Defaults to ``None``. The chart title to use.
-        plot_width (int, optional): Defaults to ``None``. The desired plot width. For facet plots, this value will be
+        height (int, optional): Defaults to ``None``. The desired plot height. For facet plots, this value will be
             set for each subplot.
-        plot_height (int, optional): Defaults to ``None``. The desired plot height. For facet plots, this value will be
-            set for each subplot.
-        sizing_mode (str, optional): Defaults to ``None``. A Bokeh SizingModeType. How will the items in the layout
-            resize to fill the available space. Please refer to Bokeh documentation for acceptable values.
         normalize (bool, optional): Defaults to ``True``. Plot the stacked horizontal bar chart with normalized data.
         color_palette (Dict[str, Any], optional): Defaults to ``Set3``. The Bokeh color palette to use.
 
     Returns:
-        A pandas DataFrame and a Bokeh figure
+        Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]
     """
     check_df_indices(controls_df, result_df)
-    ref_label = check_ref_label(controls_df, result_df, ref_label)
 
+    ref_label = check_ref_label(ref_label, controls_df, result_df)
     if label_col is None:
         label_col = controls_df.index.names
     elif isinstance(label_col, Hashable):
@@ -102,11 +116,8 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     else:
         raise RuntimeError('Invalid data type provided for `label_col`')
 
-    # Prepare data
-    df, fig_df = _prep_stacked_hbar_data(
-        controls_df, result_df, data_label, ref_label, label_col, category_labels=category_labels,
-        controls_name=controls_name, result_name=result_name, normalize=normalize
-    )
+    df, fig_df = prep_stacked_hbar_data(controls_df, result_df, data_label, ref_label, label_col, category_labels = category_labels, 
+                                        controls_name = controls_name, result_name = result_name, normalize = normalize)
 
     # Plot figure
     x_range = (0, 1) if normalize else (0, int(fig_df.sum(axis=1).max()))
@@ -114,13 +125,10 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     n_colors = max(len(df[data_label].unique()), 3)
 
     figure_params = {
-        'toolbar_location': 'above', 'sizing_mode': sizing_mode, 'tools': 'xpan,xwheel_zoom,hover,save,reset',
+        'toolbar_location': 'above', 'tools': 'xpan,xwheel_zoom,hover,save,reset',
         'output_backend': 'webgl'
     }
-    if plot_width is not None:
-        figure_params['width'] = plot_width
-    if plot_height is not None:
-        figure_params['height'] = plot_height
+
     if x_axis_label is not None:
         figure_params['x_axis_label'] = x_axis_label
 
@@ -131,9 +139,16 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     factors = fig_df.index.tolist()
     columns = fig_df.columns.tolist()
 
-    fig = figure(x_range=x_range, y_range=FactorRange(*factors), tooltips=tooltips, **figure_params)
+    if height is not None:
+        figure_params['height'] = height
+        fig = figure(x_range=x_range, y_range=FactorRange(*factors), tooltips=tooltips, **figure_params, sizing_mode = 'stretch_width')
+    else:
+        fig = figure(x_range=x_range, y_range=FactorRange(*factors), tooltips=tooltips, **figure_params, sizing_mode = 'stretch_both')
 
-    fig.hbar_stack(columns, y='y', source=source, color=color_palette[n_colors], legend_label=columns)
+    try:
+        fig.hbar_stack(columns, y='y', source=source, color=color_palette[n_colors], legend_label=columns)
+    except KeyError as err:
+        raise RuntimeError('Color Palette does not contain sufficient unique colors for your data.')
 
     if normalize:
         fig.xaxis.formatter = NumeralTickFormatter(format='0%')
@@ -149,6 +164,6 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     fig.legend.spacing = 5
 
     if figure_title is not None:
-        fig = wrap_title(fig, figure_title, sizing_mode=sizing_mode)
+        fig = wrap_figure_title(fig, figure_title)
 
     return df, fig
