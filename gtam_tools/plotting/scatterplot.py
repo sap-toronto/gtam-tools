@@ -10,8 +10,54 @@ from bokeh.layouts import Column, GridBox, gridplot
 from bokeh.models import ColumnDataSource, Panel, Slope, Tabs
 from bokeh.palettes import Category20, Category10, Category20b, Category20c, Set1, Set2, Set3
 from bokeh.plotting import figure
+from bokeh.models import HoverTool
 
 from common import (check_df_indices, check_ref_label, prep_figure_params, wrap_figure_title)
+
+def _create_trendline(fig : figure, df : pd.DataFrame, controls_name : str, result_name : str, *, name : str = None):
+        x = df['survey'].values
+        y = df['model'].values
+        
+        # Determine the slope and y-intercept of the line of best fit
+        coefficents = np.polyfit(x, y, 1, full=True)
+
+        slope=coefficents[0][0]
+
+        intercept=coefficents[0][1]
+
+        y_predicted = [slope * i + intercept  for i in x]
+
+        # Calculate the Coefficient of Determination (R squared)
+        sum_x = sum(x)
+        sum_y = sum(y)
+
+        x_squared = pow(x, 2)
+        y_squared = pow(y, 2)
+
+        xy = x * y
+
+        num_datapoints = len(x)
+
+        correlation_coefficient = (num_datapoints * (sum(xy)) - (sum_x * sum_y)) / pow((num_datapoints * sum(x_squared) - pow(sum_x, 2))*(num_datapoints * sum(y_squared) - pow(sum_y, 2)),0.5)
+
+        r_squared = pow(correlation_coefficient, 2)
+
+        best_fit = fig.line(x, y_predicted, color = 'black')
+
+        tooltips = [("Slope", str(slope)),
+                    ("Y-Intercept", str(intercept)),
+                    ("R squared", str(r_squared)),
+                    (controls_name + " value", "$x"),
+                    ("Predicted " + result_name + " value", "$y")]
+
+        if name is not None:
+                name = name + " "
+
+        hover = HoverTool(renderers = [best_fit], tooltips = tooltips, description = "Hover for " + name + "Trendline", line_policy = 'none', name = 'trendline')
+
+        fig.add_tools(hover)
+
+        return fig
 
 def _core_get_scatterplot_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, ref_label: Union[str, List[str]] = None, category_labels: Dict = None,
                                controls_name: str = 'controls', result_name: str = 'model', totals_in_titles: bool = True, filter_zero_rows: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -57,7 +103,7 @@ def _core_get_scatterplot_data(controls_df: pd.DataFrame, result_df: pd.DataFram
     return df, fig_df
 
 
-def _core_create_scatterplot(fig_df: pd.DataFrame, p: figure, glyph_params: Dict[str, Any], *, glyph_col: str = None, color_palette: List[str] = Category20,
+def _core_create_scatterplot(fig_df: pd.DataFrame, p: figure, glyph_params: Dict[str, Any], controls_name : str, hover_col : str, result_name : str, *, glyph_col: str = None, color_palette: List[str] = Category20,
                              glyph_legend: bool = True, glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px') -> figure:
     """Creates and plots scatterplot
 
@@ -71,6 +117,9 @@ def _core_create_scatterplot(fig_df: pd.DataFrame, p: figure, glyph_params: Dict
         glyph_legend (bool, optional): Defaults to ''True''. Enables or disables a legend if ''glyph_col'' is set. 
         glyph_legend_location (str, optional): Defaults to ''bottom_right''. The location of the glyph legend in each plot/facet subplot. 
         glyn_legend_label_text_font_size (str, optional): Defaults to ''11px''. The size of the text of the legend labels
+        controls_name
+        hover_col
+        result_name
 
     Returns:
         A Bokeh figure
@@ -89,7 +138,14 @@ def _core_create_scatterplot(fig_df: pd.DataFrame, p: figure, glyph_params: Dict
         for j, gc in enumerate(sorted(fig_df[glyph_col].unique())):
             subset_df = fig_df[fig_df[glyph_col] == gc]
             subset_source = ColumnDataSource(subset_df)
-            p.scatter(source = subset_source, legend_label = gc, color = color_palette[j], **glyph_params)
+            points = p.scatter(source = subset_source, legend_label = gc, color = color_palette[j], **glyph_params)
+
+            tooltips = [(c, '@{%s}' % c) for c in hover_col]
+            tooltips += [(controls_name, '@{%s}{0,0.0}' % controls_name), (result_name, '@{%s}{0,0.0}' % result_name)]
+
+            hover = HoverTool(renderers = [points], tooltips = tooltips, description = "Hover for Data Points", line_policy = 'none', name = 'Data Points')
+            p.add_tools(hover)
+
         apply_legend_settings(p)
     
     return p
@@ -102,10 +158,10 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                            facet_sort_order: bool = True, facet_sync_axes: str = 'both', facet_max_subplot: int = 9,
                            hover_col: Union[str, List[str]] = None, glyph_col: str = None, glyph_legend: bool = True,
                            glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px',
-                           figure_title: str = None, height: int = None, identity_line: bool = True,
+                           figure_title: str = None, height: int = None, identity_line: bool = False,
                            identity_colour: str = 'red', identity_width: int = 2,
                            color_palette: Dict[int, Any] = Category20, calc_pct_diff: bool = True,
-                           totals_in_titles: bool = True, filter_zero_rows: bool = True
+                           totals_in_titles: bool = True, filter_zero_rows: bool = True, trendline: bool = True,
                            ) -> Tuple[pd.DataFrame, Union[Column, figure, GridBox, Tabs]]:
     """Creates an interactive Bokeh-based scatter plot to compare data.
 
@@ -155,6 +211,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
         totals_in_titles (bool, optional): Defaults to ``True``. Include the control and result totals in plot title.
         filter_zero_rows (bool, optional): Defaults to ``True``. Filter out comparisons where controls and results are
             both zeros.
+        trendline (bool, optional): Defaults to ''True''. A flag to include a line of best fit in the scatter plot
 
     Returns:
         Tuple[pd.DataFrame, Union[Column, figure, GridBox, Tabs]]
@@ -181,9 +238,8 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
     # Prepare figure formatting values
     source = ColumnDataSource(fig_df)
-    tooltips = [(c, '@{%s}' % c) for c in hover_col]
-    tooltips += [(controls_name, '@{%s}{0,0.0}' % controls_name), (result_name, '@{%s}{0,0.0}' % result_name)]
-    figure_params = prep_figure_params(controls_name, result_name, tooltips, height)
+    figure_params = prep_figure_params(controls_name, result_name, height, scatterplot=True)
+
 
     glyph_params = {
         'x': controls_name, 'y': result_name, 'size': size, 'fill_alpha': fill_alpha,
@@ -206,6 +262,11 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
             p.add_layout(slope)
 
         fig = p
+
+        if trendline == True:
+            fig = _create_trendline(fig, df, controls_name, result_name)
+
+
     else:  # Facet plot
         plots = []
 
@@ -223,7 +284,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
                 subset_facet = fig_df[fig_df[facet_col] == fc]
 
-                p = _core_create_scatterplot(subset_facet, p, glyph_params, glyph_col = glyph_col, color_palette = color_palette, glyph_legend = glyph_legend, 
+                p = _core_create_scatterplot(subset_facet, p, glyph_params, controls_name, hover_col, result_name, glyph_col = glyph_col, color_palette = color_palette, glyph_legend = glyph_legend, 
                                      glyph_legend_location= glyph_legend_location, glyph_legend_label_text_font_size=glyph_legend_label_text_font_size)
 
                 if (j == 0) and (facet_sync_axes is not None):
@@ -234,6 +295,9 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
                 if identity_line:
                     p.add_layout(slope)
+
+                if trendline == True:
+                    p = _create_trendline(p, subset_facet, controls_name, result_name, name = fc)
 
                 fig.append(p)
             
