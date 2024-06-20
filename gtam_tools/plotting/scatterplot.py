@@ -7,12 +7,12 @@ import pandas as pd
 
 from balsa.routines import sort_nicely
 from bokeh.layouts import Column, GridBox, gridplot
-from bokeh.models import ColumnDataSource, Panel, Slope, Tabs
+from bokeh.models import ColumnDataSource, Slope, Tabs, TabPanel
 from bokeh.palettes import Category20, Category10, Category20b, Category20c, Set1, Set2, Set3
 from bokeh.plotting import figure
 from bokeh.models import HoverTool
 
-from common import (check_df_indices, check_ref_label, prep_figure_params, wrap_figure_title)
+from common import (_check_df_indices, _check_ref_label, _prep_figure_params, _wrap_figure_title)
 
 def _create_trendline(fig : figure, df : pd.DataFrame, controls_name : str, result_name : str, *, name : str = None):
         x = df['survey'].values
@@ -61,22 +61,7 @@ def _create_trendline(fig : figure, df : pd.DataFrame, controls_name : str, resu
 
 def _core_get_scatterplot_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, ref_label: Union[str, List[str]] = None, category_labels: Dict = None,
                                controls_name: str = 'controls', result_name: str = 'model', totals_in_titles: bool = True, filter_zero_rows: bool = True) -> Tuple[pd.DataFrame, pd.DataFrame]:
-    """Prepares the scatter plot data for plotting
 
-    Args:
-        controls_df (pd.DataFrame): A DataFrame containing control values. Must be in the form where rows represent a reference and columns represent the data categories.
-        result_df (pd.DataFrame): A DataFrame containing modelled values. Must be the same format as 'controls_df'.
-        data_label (str): The name for the data represented by the 'controls_df' and 'result_df' columns.
-        ref_label (Union[str, List[str]], optional): Defaults to ''None''. The name(s) corresponding to the 'controls_df' and 'result_df' indices.
-        category_labels (Dict, optional): Defaults to ''None''. Category labels used to rename the 'controls__df' and 'results_df' columns. 
-        controls_name (str, optional): Defaults to ''controls''. The name for the controls.
-        result_name (str, optional): Defaults to ''model''. The name for the results
-        totals_in_titles (bool, optional): Defaults to ''True''. Include the control and result totals in the plot title. 
-        filter_zero_rows (bool, optional): Defaults to ''True''. Filter out comparisons where both controls and results are zero.
-
-    Returns:
-        Tuple[pd.DataFrame, pd.DataFrame]
-    """
     df = controls_df.stack()
     df.index.names = [*ref_label, data_label]
     df = df.to_frame(name=controls_name)
@@ -105,25 +90,7 @@ def _core_get_scatterplot_data(controls_df: pd.DataFrame, result_df: pd.DataFram
 
 def _core_create_scatterplot(fig_df: pd.DataFrame, p: figure, glyph_params: Dict[str, Any], controls_name : str, hover_col : str, result_name : str, *, glyph_col: str = None, color_palette: List[str] = Category20,
                              glyph_legend: bool = True, glyph_legend_location: str = 'bottom_right', glyph_legend_label_text_font_size: str = '11px') -> figure:
-    """Creates and plots scatterplot
 
-    Args:
-        fig_df (pd.DataFrame): The DataFrame containing data to be plotted 
-        source (ColumnDataSource): The Column Data Source to use when setting the points for the scatterplot
-        p (figure): The figure where these points are placed on a scatterplot
-        glyph_params (Dict[str, Any]): Parameters of each point on the plot
-        glyph_col (str, optional): Default to ''None''. The name of the column to use for glyph coloring.
-        color_palette (List[str], optional): Defaults to ''Category20''. The Bokeh color palette to use. 
-        glyph_legend (bool, optional): Defaults to ''True''. Enables or disables a legend if ''glyph_col'' is set. 
-        glyph_legend_location (str, optional): Defaults to ''bottom_right''. The location of the glyph legend in each plot/facet subplot. 
-        glyn_legend_label_text_font_size (str, optional): Defaults to ''11px''. The size of the text of the legend labels
-        controls_name
-        hover_col
-        result_name
-
-    Returns:
-        A Bokeh figure
-    """
     def apply_legend_settings(p_: figure):
         p_.legend.visible = glyph_legend
         p_.legend.title = glyph_col
@@ -216,9 +183,9 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
     Returns:
         Tuple[pd.DataFrame, Union[Column, figure, GridBox, Tabs]]
     """
-    check_df_indices(controls_df, result_df)
+    _check_df_indices(controls_df, result_df)
 
-    ref_label = check_ref_label(ref_label, controls_df, result_df)
+    ref_label = _check_ref_label(ref_label, controls_df, result_df)
 
     if hover_col is None:
         hover_col = []
@@ -238,7 +205,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
 
     # Prepare figure formatting values
     source = ColumnDataSource(fig_df)
-    figure_params = prep_figure_params(controls_name, result_name, height, scatterplot=True)
+    figure_params = _prep_figure_params(controls_name, result_name, height, scatterplot=True)
 
 
     glyph_params = {
@@ -309,17 +276,20 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
             if len(facet_col_items) > 1:  # If there will be multiple tabs, convert figure into a Panel
                 start_num = i * n + 1
                 end_num = i * n + len(fc_items)
-                fig = Panel(child=fig, title=f'Plots {start_num}-{end_num}')
+                plots.append(TabPanel(child=fig, title=f'Plots {start_num}-{end_num}'))
+            else:
+                plots.append(fig)
 
-            plots.append(fig)
-
-        if len(plots) == 1:
-            fig = plots[0]
+    if len(plots) == 1:
+        fig = plots[0]
+    else:
+        if height is None:
+            fig = Tabs(tabs=plots, sizing_mode = 'stretch_both')
         else:
-            fig = Tabs(tabs=plots)
+            fig = Tabs(tabs = plots, sizing_mode = 'stretch_width', height = height)
 
     if figure_title is not None:
-        fig = wrap_figure_title(fig, figure_title)
+        fig = _wrap_figure_title(fig, figure_title)
 
     if calc_pct_diff:
         df['pct_diff'] = (df[result_name] - df[controls_name]) / df[controls_name] * 100
