@@ -9,14 +9,14 @@ import numpy as np
 from bokeh.layouts import column
 from bokeh.models import Column, Div
 
-def check_df_indices(controls_df: pd.DataFrame, results_df: pd.DataFrame):
+def _check_df_indices(controls_df: pd.DataFrame, results_df: pd.DataFrame):
     if not controls_df.index.equals(results_df.index):
         warnings.warn('Indices for \'controls_df\' and \'results_df\' are not identical, function may not produce desired results')
     if not controls_df.columns.equals(results_df.columns):
         warnings.warn('Columns for \'controls_df\' and \'results_df\' are not identical, function may not produce desired results')
 
 
-def check_ref_label(ref_label: Union[str, List[str]], controls_df: pd.DataFrame, results_df: pd.DataFrame) -> List[str]:
+def _check_ref_label(ref_label: Union[str, List[str]], controls_df: pd.DataFrame, results_df: pd.DataFrame) -> List[str]:
     if ref_label is None:
        if not np.all(controls_df.index.names == results_df.index.names):
            raise RuntimeError('Unable to resolve different index names, pleace specify values for \'ref_label\' instead')
@@ -35,7 +35,7 @@ def check_ref_label(ref_label: Union[str, List[str]], controls_df: pd.DataFrame,
     return ref_label
 
 
-def prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable, Hashable]], plot_width: int = None,
+def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable, Hashable]], plot_width: int = None,
                         plot_height: int = None, scatterplot: bool = False) -> Dict[str, Any]:
     if scatterplot == False:
         figure_params = {
@@ -55,6 +55,6 @@ def prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashable
     return figure_params
 
 
-def wrap_figure_title(fig, figure_title : str):
+def _wrap_figure_title(fig, figure_title : str):
     title = Div(text=f'<h2>{figure_title}</h2>')
     return column(children=[title, fig], sizing_mode='stretch_both')
