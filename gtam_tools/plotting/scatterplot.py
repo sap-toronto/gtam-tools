@@ -15,8 +15,8 @@ from bokeh.models import HoverTool
 from .common import (_check_df_indices, _check_ref_label, _prep_figure_params, _wrap_figure_title)
 
 def _create_trendline(fig : figure, df : pd.DataFrame, controls_name : str, result_name : str, *, name : str = None):
-        x = df['survey'].values
-        y = df['model'].values
+        x = df[controls_name].values
+        y = df[result_name].values
 
         # Determine the slope and y-intercept of the line of best fit
         coefficents = np.polyfit(x, y, 1, full=True)
