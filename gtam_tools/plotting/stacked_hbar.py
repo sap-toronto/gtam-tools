@@ -11,7 +11,7 @@ from bokeh.layouts import Column, GridBox
 from bokeh.palettes import Category20, Category10, Category20b, Category20c, Set1, Set2, Set3
 from bokeh.plotting import figure
 
-from common import check_df_indices, check_ref_label, wrap_figure_title
+from .common import _check_df_indices, _check_ref_label, _wrap_figure_title
 
 
 def prep_stacked_hbar_data(controls_df: pd.DataFrame, result_df: pd.DataFrame, data_label: str, ref_label: Union[str, List[str]],
@@ -104,9 +104,9 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     Returns:
         Tuple[pd.DataFrame, Union[Column, Figure, GridBox]]
     """
-    check_df_indices(controls_df, result_df)
+    _check_df_indices(controls_df, result_df)
 
-    ref_label = check_ref_label(ref_label, controls_df, result_df)
+    ref_label = _check_ref_label(ref_label, controls_df, result_df)
     if label_col is None:
         label_col = controls_df.index.names
     elif isinstance(label_col, Hashable):
@@ -164,6 +164,6 @@ def stacked_hbar_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, 
     fig.legend.spacing = 5
 
     if figure_title is not None:
-        fig = wrap_figure_title(fig, figure_title)
+        fig = _wrap_figure_title(fig, figure_title)
 
     return df, fig

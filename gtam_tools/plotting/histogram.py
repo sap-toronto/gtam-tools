@@ -9,7 +9,7 @@ from bokeh.layouts import gridplot
 from bokeh.plotting import figure
 from numpy.typing import ArrayLike, NDArray
 
-from .common import wrap_title
+from .common import _wrap_figure_title
 from .resources import SyncAxesOptions
 
 
@@ -79,6 +79,6 @@ def histogram_plot(df: pd.DataFrame, data_col: str, *, facet_col: str = None, fa
         )
 
     if figure_title is not None:
-        fig = wrap_title(fig, figure_title, sizing_mode=sizing_mode)
+        fig = _wrap_figure_title(fig, figure_title, sizing_mode=sizing_mode)
 
     return results, fig

@@ -9,7 +9,7 @@ from bokeh.layouts import gridplot
 from bokeh.models import ColumnDataSource, TabPanel, Tabs
 from bokeh.plotting import figure
 
-from common import _check_df_indices, _prep_figure_params, _wrap_figure_title
+from .common import _check_df_indices, _prep_figure_params, _wrap_figure_title
 
 
 def _core_simplify_tlfd_index(df: Union[pd.DataFrame, pd.Series], low: float = -2.0,

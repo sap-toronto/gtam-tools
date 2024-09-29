@@ -12,12 +12,12 @@ from bokeh.palettes import Category20, Category10, Category20b, Category20c, Set
 from bokeh.plotting import figure
 from bokeh.models import HoverTool
 
-from common import (_check_df_indices, _check_ref_label, _prep_figure_params, _wrap_figure_title)
+from .common import (_check_df_indices, _check_ref_label, _prep_figure_params, _wrap_figure_title)
 
 def _create_trendline(fig : figure, df : pd.DataFrame, controls_name : str, result_name : str, *, name : str = None):
         x = df['survey'].values
         y = df['model'].values
-        
+
         # Determine the slope and y-intercept of the line of best fit
         coefficents = np.polyfit(x, y, 1, full=True)
 
@@ -267,7 +267,7 @@ def scatterplot_comparison(controls_df: pd.DataFrame, result_df: pd.DataFrame, d
                     p = _create_trendline(p, subset_facet, controls_name, result_name, name = fc)
 
                 fig.append(p)
-            
+
             if height is None:
                 fig = gridplot(fig, ncols=facet_col_wrap, sizing_mode='stretch_both', merge_tools=True)
             else:
