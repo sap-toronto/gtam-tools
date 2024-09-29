@@ -31,7 +31,7 @@ def _check_ref_label(ref_label: Union[str, List[str]], controls_df: pd.DataFrame
         pass
     else:
         raise RuntimeError('Invalid data type provided for \'ref_label\'')
-    
+
     return ref_label
 
 
@@ -55,6 +55,6 @@ def _prep_figure_params(x_label: str, y_label: str, tooltips: List[Tuple[Hashabl
     return figure_params
 
 
-def _wrap_figure_title(fig, figure_title : str):
+def _wrap_figure_title(fig, figure_title: str, sizing_mode: str = 'stretch_both'):
     title = Div(text=f'<h2>{figure_title}</h2>')
-    return column(children=[title, fig], sizing_mode='stretch_both')
+    return column(children=[title, fig], sizing_mode=sizing_mode)
