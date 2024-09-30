@@ -22,9 +22,9 @@ setup(
         'bokeh>=3.0.0',
         'geopandas>=0.9.0',
         'numpy>=1.20',
-        'pandas',
+        'pandas<=1.1.5',
         'pyproj',
         'wsp-balsa>=1.2.2',
-        'wsp-cheval'
+        'wsp-cheval==0.2.0'
     ]
 )
