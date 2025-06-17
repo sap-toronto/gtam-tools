@@ -1,3 +1,6 @@
+> [!NOTE]  
+> This repository is no longer maintained. Users are encouraged to switch to wsp-tasha-toolbox instead.
+
 # gtam-tools (wsp-gtam-tools)
 
 [![Conda Latest Release](https://anaconda.org/wsp_sap/wsp-gtam-tools/badges/version.svg)](https://anaconda.org/wsp_sap/wsp-gtam-tools)
